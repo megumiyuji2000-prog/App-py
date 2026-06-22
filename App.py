@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Fanilla AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="collapsed" # BIARIN COLLAPSED, NANTI DIBUKA PAKE TOMBOL
+    initial_sidebar_state="collapsed" # Matin sidebar bawaan, kita pake custom
 )
 
 st.markdown("""
@@ -21,52 +21,41 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
- .main.block-container {padding-top: 1rem; padding-bottom: 5rem; max-width: 800px;}
- .stChatMessage[data-testid="stChatMessage"] {background-color: transparent!important;}
+.main.block-container {padding-top: 0.5rem; padding-bottom: 5rem; max-width: 800px;}
+.stChatMessage[data-testid="stChatMessage"] {background-color: transparent!important;}
     [data-testid="user-message"] {background-color: #7C3AED!important;}
     [data-testid="assistant-message"] {background-color: #1F2937!important;}
- .stChatInput > div {background-color: #374151; border-radius: 24px; border: 1px solid #4B5563;}
- .fanilla-title {
+.stChatInput > div {background-color: #374151; border-radius: 24px; border: 1px solid #4B5563;}
+.fanilla-title {
         background: linear-gradient(90deg, #A855F7, #EC4899);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.5rem; font-weight: 800; text-align: center; margin-bottom: 0px;
+        font-size: 2.2rem; font-weight: 800; text-align: center; margin-bottom: 0px;
     }
- .fanilla-caption {text-align: center; color: #9CA3AF; margin-bottom: 1rem;}
- .image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
-   /* Style buat list chat di sidebar */
-    div[data-testid="stSidebarNav"] {display: none;}
- .stButton > button {
-        width: 100%;
+.fanilla-caption {text-align: center; color: #9CA3AF; margin-bottom: 0.5rem;}
+.image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
+    /* SIDEBAR CUSTOM */
+.custom-sidebar {
+        background-color: #111827;
+        border: 1px solid #374151;
         border-radius: 12px;
-        text-align: left;
-        justify-content: flex-start;
-        background-color: transparent;
-        border: none;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+.stButton > button[kind="secondary"] {
+        background-color: #1F2937;
+        border: 1px solid #374151;
         color: #D1D5DB;
+        text-align: left;
     }
- .stButton > button:hover {
-        background-color: #374151;
-        color: white;
-    }
- .stButton > button[kind="primary"] {
-        background-color: #4B5563!important;
+.stButton > button[kind="primary"] {
+        background-color: #7C3AED!important;
         color: white!important;
         font-weight: 600;
-    }
-   /* TOMBOL MENU BARU */
-   .menu-button {
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 999;
+        text-align: left;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# ==================== TOMBOL MENU BUAT BUKA SIDEBAR ====================
-if st.button("☰ Obrolan", key="menu_btn", help="Klik buat liat semua obrolan"):
-    st.session_state.sidebar_open = not st.session_state.get("sidebar_open", False)
 
 # ==================== INIT CLIENTS ====================
 if "GROQ_API_KEY" not in st.secrets:
@@ -90,6 +79,7 @@ def buat_chat_baru():
     }
     st.session_state.active_chat_id = chat_id
     st.session_state.mode = "idle"
+    st.session_state.show_sidebar = False
 
 def ganti_judul_otomatis(chat_id):
     chat = st.session_state.chats[chat_id]
@@ -97,7 +87,7 @@ def ganti_judul_otomatis(chat_id):
         for msg in chat["messages"]:
             if msg["role"] == "user" and msg.get("type") == "text":
                 title = " ".join(msg["content"].split()[:4])
-                chat["title"] = title[:30] + "..." if len(title) > 30 else title
+                chat["title"] = title[:25] + "..." if len(title) > 25 else title
                 break
 
 def hapus_chat(chat_id):
@@ -116,6 +106,9 @@ if "active_chat_id" not in st.session_state:
 
 if "mode" not in st.session_state:
     st.session_state.mode = "idle"
+
+if "show_sidebar" not in st.session_state:
+    st.session_state.show_sidebar = False
 
 # ==================== KONSTANTA ====================
 STYLE_PROMPTS = {
@@ -176,33 +169,44 @@ def generate_image(prompt, style="Realistic"):
     except Exception as e:
         return f"Gagal bikin gambar bro: {str(e)}. Server lagi rame, coba lagi 30 detik."
 
-# ==================== SIDEBAR - SISTEM OBROLAN ====================
-with st.sidebar:
-    st.markdown("### ✨ Fanilla AI")
-    if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
-        buat_chat_baru()
+# ==================== TOMBOL BUKA/TUTUP SIDEBAR CUSTOM ====================
+col1, col2 = st.columns([0.3, 0.7])
+with col1:
+    if st.button("☰ Obrolan", use_container_width=True, key="toggle_sidebar"):
+        st.session_state.show_sidebar = not st.session_state.show_sidebar
         st.rerun()
-    st.divider()
-    st.markdown("**Obrolan**")
-    sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
-    for chat_id, chat_data in sorted_chats:
-        col1, col2 = st.columns([0.8, 0.2])
-        with col1:
-            if st.button(
-                f"💬 {chat_data['title']}",
-                key=f"chat_{chat_id}",
-                use_container_width=True,
-                type="primary" if chat_id == st.session_state.active_chat_id else "secondary"
-            ):
-                st.session_state.active_chat_id = chat_id
-                st.session_state.mode = "idle"
-                st.rerun()
-        with col2:
-            if st.button("🗑️", key=f"del_{chat_id}", help="Hapus obrolan"):
-                hapus_chat(chat_id)
-                st.rerun()
-    st.divider()
-    st.caption(f"Model: Llama 3.3 | Vision: Llama 4 Scout")
+
+# ==================== SIDEBAR CUSTOM - MUNCUL KALO DIKLIK ====================
+if st.session_state.show_sidebar:
+    with st.container():
+        st.markdown('<div class="custom-sidebar">', unsafe_allow_html=True)
+
+        if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
+            buat_chat_baru()
+            st.rerun()
+
+        st.markdown("**List Obrolan:**")
+        sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
+
+        for chat_id, chat_data in sorted_chats:
+            c1, c2 = st.columns([0.85, 0.15])
+            with c1:
+                if st.button(
+                    f"💬 {chat_data['title']}",
+                    key=f"chat_{chat_id}",
+                    use_container_width=True,
+                    type="primary" if chat_id == st.session_state.active_chat_id else "secondary"
+                ):
+                    st.session_state.active_chat_id = chat_id
+                    st.session_state.mode = "idle"
+                    st.session_state.show_sidebar = False
+                    st.rerun()
+            with c2:
+                if st.button("🗑️", key=f"del_{chat_id}"):
+                    hapus_chat(chat_id)
+                    st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==================== AMBIL CHAT AKTIF ====================
 active_chat = st.session_state.chats[st.session_state.active_chat_id]
