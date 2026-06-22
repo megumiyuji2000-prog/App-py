@@ -4,7 +4,7 @@ from huggingface_hub import InferenceClient
 from PIL import Image
 import time, base64, io, uuid, asyncio
 from datetime import datetime
-import pytz # <-- BARU
+import pytz
 import fitz # PyMuPDF
 from duckduckgo_search import DDGS
 import edge_tts
@@ -35,7 +35,7 @@ def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.7 nih. Udah tau tanggal hari ini + pake Edge TTS. Coba tanya 'hari ini tanggal berapa' ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.8 nih. Udah bisa auto-browsing internet. Coba tanya 'harga bitcoin hari ini' ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -64,9 +64,9 @@ def baca_pdf(file):
 def search_internet(query):
     try:
         with DDGS() as ddgs:
-            results = [r for r in ddgs.text(query, max_results=3)]
+            results = [r for r in ddgs.text(query, max_results=4)]
         if not results: return "Ga nemu hasil bro"
-        return "\n\n".join([f"Sumber: {r['href']}\n{r['body']}" for r in results])
+        return "\n\n".join([f"Sumber: {r['href']}\nJudul: {r['title']}\n{r['body']}" for r in results])
     except Exception as e:
         return f"Search error: {e}"
 
@@ -98,17 +98,27 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """V8.7 - FIX TIME AWARE"""
+    """V8.8 - AUTO SEARCH + TIME AWARE"""
     try:
-        # 1. KASIH JAM DINDING KE AI
+        # 1. DETEKSI AUTO SEARCH
+        user_terakhir = messages[-1]["content"].lower()
+        keyword_realtime = ["hari ini", "terbaru", "sekarang", "harga", "kurs", "berita", "cuaca", "siapa yang", "kapan", "skor", "update", "2024", "2025", "2026"]
+        perlu_search = any(kata in user_terakhir for kata in keyword_realtime)
+
+        if perlu_search:
+            with st.spinner("🔍 Browsing internet dulu bro..."):
+                hasil_search = search_internet(messages[-1]["content"])
+                context_tambahan = f"\n\n[INFO TERBARU DARI INTERNET - WAJIB DIPAKE]:\n{hasil_search}\nJawab pertanyaan user pake info di atas. Kasih sumbernya."
+                messages[-1]["content"] += context_tambahan
+
+        # 2. JAM DINDING
         tz = pytz.timezone('Asia/Jakarta')
         tanggal_hari_ini = datetime.now(tz).strftime("%A, %d %B %Y, %H:%M WIB")
         system_prompt = {
             "role": "system",
-            "content": f"Kamu adalah Fanilla AI. Hari ini adalah {tanggal_hari_ini}. Tahun sekarang 2026. Knowledge cutoff kamu Desember 2023. Untuk info terbaru setelah 2023 seperti berita/harga saham, jawab 'saya perlu search internet dulu' lalu gunakan infomu. Selalu jawab santai pake 'bro'."
+            "content": f"Kamu adalah Fanilla AI. Hari ini adalah {tanggal_hari_ini}. Tahun 2026. Knowledge cutoff kamu Desember 2023. Kalo ada [INFO TERBARU DARI INTERNET], itu yang paling bener. Selalu jawab santai pake 'bro' dan kasih sumber kalo pake internet."
         }
 
-        # 2. Gabungin system + history
         history = [system_prompt] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
         return groq_client.chat.completions.create(model=model, messages=history, stream=True)
     except Exception as e:
