@@ -2,7 +2,6 @@ streamlit
 groq
 huggingface_hub
 Pillow
-PyMuPDF
 duckduckgo-search
 googlesearch-python
 beautifulsoup4
