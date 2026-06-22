@@ -12,3 +12,5 @@ pydub
 pytz
 beautifulsoup4
 requests
+opencv-python-headless
+moviepy
