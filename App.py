@@ -29,7 +29,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== INIT GEMMA 3 31B ====================
+# ==================== INIT GEMMA 4 31B ====================
 try:
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
@@ -56,11 +56,10 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def gemma_chat_stream(messages, is_vision=False, image_b64=None):
-    """CHAT + VISION PAKE GEMMA 3 31B FREE"""
+    """CHAT + VISION PAKE GEMMA 4 31B FREE"""
     try:
         user_msg = messages[-1]["content"]
 
-        # AUTO SEARCH KALO NANYA REALTIME
         if not is_vision:
             user_lower = user_msg.lower()
             need_search = any(word in user_lower for word in ["hari ini", "terbaru", "sekarang", "harga", "berita", "2024", "2025", "2026", "skor", "cuaca"])
@@ -87,11 +86,11 @@ def gemma_chat_stream(messages, is_vision=False, image_b64=None):
             msg = chat_history
 
         stream = client.chat.completions.create(
-            model="google/gemma-3-31b-it:free", # GEMMA 3 31B FREE
+            model="google/gemma-4-31b-it:free", # GEMMA 4 31B - MODEL TERBARU
             messages=msg,
             stream=True,
             timeout=15,
-            max_tokens=300,
+            max_tokens=400,
             extra_headers={
                 "HTTP-Referer": "https://fanilla.streamlit.app",
                 "X-Title": "Fanilla AI",
@@ -107,27 +106,23 @@ def gemma_chat_stream(messages, is_vision=False, image_b64=None):
                 full += chunk.choices[0].delta.content
                 yield full
     except Exception as e:
-        yield f"Error Gemma: {str(e)[:150]}"
+        yield f"Error Gemma 4: {str(e)[:150]}"
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.markdown("### ✨ Fanilla AI")
-    st.caption("Powered by Gemma 3 31B")
+    st.caption("Powered by Gemma 4 31B")
     if st.button("🗑️ Hapus Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
     st.markdown("---")
-    st.markdown("**Fitur:**")
-    st.caption("💬 Chat + Search")
-    st.caption("👁️ Vision Gambar")
-    st.markdown("---")
     st.caption("Limit: 50 req/hari")
-    st.caption("Fanilla AI v10.5 © FNL 2026")
+    st.caption("Fanilla AI v10.7 © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Powered by Gemma 3 31B. Upload logo FNL coba bro.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Powered by Gemma 4 31B. Upload logo FNL coba bro.</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -147,7 +142,6 @@ prompt = st.chat_input(
 if prompt and not st.session_state.processing:
     st.session_state.processing = True
 
-    # HANDLE GAMBAR
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
         user_text = prompt.get("text", "Gimana gambar ini?")
@@ -166,7 +160,7 @@ if prompt and not st.session_state.processing:
             placeholder = st.empty()
             full_response = ""
             try:
-                st.toast("Analisis pake Gemma 3 31B...", icon="✨")
+                st.toast("Analisis pake Gemma 4 31B...", icon="✨")
                 image.thumbnail((768, 768))
                 buffered = io.BytesIO()
                 image.save(buffered, format="JPEG", quality=85)
@@ -184,7 +178,6 @@ if prompt and not st.session_state.processing:
             except Exception as e:
                 placeholder.error(f"Error: {e}")
 
-    # HANDLE TEKS
     elif prompt.get("text"):
         user_text = prompt["text"]
         st.session_state.messages.append({"role": "user", "content": user_text, "type": "text"})
