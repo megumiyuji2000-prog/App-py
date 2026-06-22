@@ -8,7 +8,3 @@ googlesearch-python
 beautifulsoup4
 requests
 pytz
-edge-tts
-streamlit-mic-recorder
-SpeechRecognition
-pydub
