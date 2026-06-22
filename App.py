@@ -50,36 +50,47 @@ if "user_style" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== IMAGE GEN V14.5 ====================
+# ==================== IMAGE GEN V14.6 - 3 BACKUP ====================
 def generate_image_hf(prompt):
-    """V14.5 - LOG DETAIL + ERROR JELAS"""
-    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
+    """V14.6 - 3 MODEL BACKUP. Kalo 1 down, pindah lain."""
+    MODELS = [
+        "black-forest-labs/FLUX.1-schnell", # 1. Paling bagus tapi sering tidur
+        "stabilityai/stable-diffusion-xl-base-1.0", # 2. Backup utama, uptime 90%
+        "runwayml/stable-diffusion-v1-5" # 3. Paling ringan, jarang down
+    ]
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-    try:
-        with st.spinner(f"🔄 Kontak server HuggingFace..."):
-            response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
+    for i, model_name in enumerate(MODELS):
+        API_URL = f"https://api-inference.huggingface.co/models/{model_name}"
+        model_short = model_name.split('/')[-1]
 
-        if response.status_code == 200:
-            image = Image.open(io.BytesIO(response.content))
-            return image, None
-        elif response.status_code == 503:
-            return None, "Model FLUX lagi loading/overload. Ini normal. Tunggu 30 detik terus `/gambar` lagi."
-        elif response.status_code == 401:
-            return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets. Format harus `hf_...`"
-        elif response.status_code == 429:
-            return None, "Rate limit HuggingFace. Kebanyakan request. Coba 1 menit lagi."
-        elif response.status_code == 400:
-            return None, f"Prompt ditolak HF: {response.text}. Coba ganti prompt."
-        else:
-            return None, f"Error HF {response.status_code}: {response.text[:200]}"
+        try:
+            with st.status(f"🔄 Coba model {i+1}/3: `{model_short}`...", expanded=False) as status:
+                response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
 
-    except requests.exceptions.Timeout:
-        return None, "Timeout 60 detik. Server HF lemot banget. Coba lagi."
-    except requests.exceptions.ConnectionError:
-        return None, "Gagal konek ke HuggingFace. Cek internet atau server HF lagi down."
-    except Exception as e:
-        return None, f"Error Python: {str(e)}"
+                if response.status_code == 200:
+                    image = Image.open(io.BytesIO(response.content))
+                    status.update(label=f"✅ Berhasil pake: {model_short}", state="complete")
+                    return image, None, model_short
+                elif response.status_code == 503:
+                    status.update(label=f"Model {model_short} tidur. Coba backup...", state="error")
+                    time.sleep(1)
+                    continue
+                elif response.status_code == 401:
+                    return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets. Format harus `hf_...`", None
+                else:
+                    status.update(label=f"Model {model_short} error {response.status_code}", state="error")
+                    time.sleep(1)
+                    continue
+
+        except requests.exceptions.Timeout:
+            st.warning(f"Timeout di {model_short}. Coba model lain...")
+            continue
+        except Exception as e:
+            st.warning(f"Error di {model_short}: {str(e)}. Coba model lain...")
+            continue
+
+    return None, "Semua model HF lagi down/tidur bro 😭 Coba 5 menit lagi. Server gratisan emang gini.", None
 
 # ==================== CORE ====================
 def detect_user_style(text):
@@ -105,7 +116,7 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def handle_image_command(prompt_text):
-    """V14.5 - FIX LOADING ILANG. ERROR PASTI MUNCUL"""
+    """V14.6 - 3 MODEL BACKUP"""
     clean_prompt = prompt_text.replace("/gambar", "", 1).strip()
     if not clean_prompt:
         st.error("Promptnya kosong bro 😭\nContoh: `/gambar kucing pakai kacamata cyberpunk 4k`")
@@ -116,42 +127,39 @@ def handle_image_command(prompt_text):
         })
         return
 
-    # PAKE CONTAINER BIAR GA ILANG
-    with st.container():
-        st.info(f"🎨 Otw generate: `{clean_prompt}`\n\nModel FLUX kalo baru bangun butuh 20-30 detik...")
+    st.info(f"🎨 Otw generate: `{clean_prompt}`\n\nSistem 3 backup: FLUX → SDXL → SD1.5. Pasti ada yang nyala.")
 
-        img, error = generate_image_hf(clean_prompt)
+    img, error, model_used = generate_image_hf(clean_prompt)
 
-        if img:
-            st.success("✅ Berhasil Generate!")
-            st.image(img, caption=f"Generated: {clean_prompt}")
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": img,
-                "type": "image",
-                "caption": f"Generated: {clean_prompt}"
-            })
-        else:
-            st.error(f"❌ **Gagal generate:**\n\n`{error}`")
-            st.warning("""
-**Checklist Debug:**
-1. `HF_TOKEN` udah ada di Secrets? Format: `hf_xxxxxxxx`
-2. Token role-nya `read`? Bukan `write`
-3. Coba lagi 30 detik kalo error 503
-4. Prompt jangan pake kata NSFW
-            """)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": f"❌ Gagal generate: {error}",
-                "type": "text"
-            })
+    if img:
+        st.success(f"✅ Berhasil pake model: `{model_used}`")
+        st.image(img, caption=f"Generated: {clean_prompt}")
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": img,
+            "type": "image",
+            "caption": f"Generated: {clean_prompt}"
+        })
+    else:
+        st.error(f"❌ **Gagal total bro:**\n\n`{error}`")
+        st.warning("""
+**Solusi:**
+1. Coba lagi 1-2 menit. Server HF kadang ampas barengan.
+2. Ganti prompt. Hindari kata sensitif.
+3. Kalo masih error, HF lagi down se-dunia. Sabar 😭
+        """)
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": f"❌ Gagal generate: {error}",
+            "type": "text"
+        })
 
 def ai_stream_gemini(prompt_text, image=None):
     st.session_state.user_style = detect_user_style(prompt_text)
 
     if prompt_text.lower().startswith("/gambar"):
         handle_image_command(prompt_text)
-        return # STOP DISINI
+        return
 
     user_lower = prompt_text.lower()
     need_search = any(word in user_lower for word in [
@@ -220,7 +228,7 @@ with st.sidebar:
         st.rerun()
     st.markdown("---")
     st.caption("Chat: Gemini 2.5 Flash")
-    st.caption("Image: FLUX.1-schnell")
+    st.caption("Image: FLUX → SDXL → SD1.5")
     st.caption("Command: `/gambar prompt`")
     st.caption("Fanilla AI © FNL 2026")
 
