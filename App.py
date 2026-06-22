@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Fanilla AI",
     page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # BIARIN COLLAPSED, NANTI DIBUKA PAKE TOMBOL
 )
 
 st.markdown("""
@@ -21,22 +21,22 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-  .main.block-container {padding-top: 2rem; padding-bottom: 5rem; max-width: 800px;}
-  .stChatMessage[data-testid="stChatMessage"] {background-color: transparent!important;}
+ .main.block-container {padding-top: 1rem; padding-bottom: 5rem; max-width: 800px;}
+ .stChatMessage[data-testid="stChatMessage"] {background-color: transparent!important;}
     [data-testid="user-message"] {background-color: #7C3AED!important;}
     [data-testid="assistant-message"] {background-color: #1F2937!important;}
-  .stChatInput > div {background-color: #374151; border-radius: 24px; border: 1px solid #4B5563;}
-  .fanilla-title {
+ .stChatInput > div {background-color: #374151; border-radius: 24px; border: 1px solid #4B5563;}
+ .fanilla-title {
         background: linear-gradient(90deg, #A855F7, #EC4899);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.8rem; font-weight: 800; text-align: center; margin-bottom: 0px;
+        font-size: 2.5rem; font-weight: 800; text-align: center; margin-bottom: 0px;
     }
-  .fanilla-caption {text-align: center; color: #9CA3AF; margin-bottom: 2rem;}
-  .image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
+ .fanilla-caption {text-align: center; color: #9CA3AF; margin-bottom: 1rem;}
+ .image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
    /* Style buat list chat di sidebar */
     div[data-testid="stSidebarNav"] {display: none;}
-  .stButton > button {
+ .stButton > button {
         width: 100%;
         border-radius: 12px;
         text-align: left;
@@ -45,17 +45,28 @@ st.markdown("""
         border: none;
         color: #D1D5DB;
     }
-  .stButton > button:hover {
+ .stButton > button:hover {
         background-color: #374151;
         color: white;
     }
-  .stButton > button[kind="primary"] {
+ .stButton > button[kind="primary"] {
         background-color: #4B5563!important;
         color: white!important;
         font-weight: 600;
     }
+   /* TOMBOL MENU BARU */
+   .menu-button {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 999;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# ==================== TOMBOL MENU BUAT BUKA SIDEBAR ====================
+if st.button("☰ Obrolan", key="menu_btn", help="Klik buat liat semua obrolan"):
+    st.session_state.sidebar_open = not st.session_state.get("sidebar_open", False)
 
 # ==================== INIT CLIENTS ====================
 if "GROQ_API_KEY" not in st.secrets:
@@ -81,7 +92,6 @@ def buat_chat_baru():
     st.session_state.mode = "idle"
 
 def ganti_judul_otomatis(chat_id):
-    """Ganti 'Obrolan Baru' jadi 3 kata pertama dari chat user"""
     chat = st.session_state.chats[chat_id]
     if chat["title"] == "Obrolan Baru":
         for msg in chat["messages"]:
@@ -93,12 +103,10 @@ def ganti_judul_otomatis(chat_id):
 def hapus_chat(chat_id):
     if len(st.session_state.chats) > 1:
         del st.session_state.chats[chat_id]
-        # Pindah ke chat paling baru
         st.session_state.active_chat_id = list(st.session_state.chats.keys())[-1]
     else:
         buat_chat_baru()
 
-# Init session state untuk multi chat
 if "chats" not in st.session_state:
     st.session_state.chats = {}
     buat_chat_baru()
@@ -133,21 +141,18 @@ def chat_biasa(messages):
     Kamu ngomong pake bahasa Indonesia santai kayak ke temen. Jawaban lo harus helpful, to the point, tapi tetep asik.
     Kalo user minta gambar tapi ga pake /gambar, arahin buat pake command /gambar.
     Kalo ga tau, bilang ga tau."""
-
     history = [{"role": "system", "content": system_prompt}]
     for m in messages:
         if m.get("type") == "text":
             history.append({"role": m["role"], "content": m["content"]})
         elif m.get("type") == "user_image":
             history.append({"role": "user", "content": f"[User pernah upload gambar: {m.get('prompt', '')}]"})
-
     stream = groq_client.chat.completions.create(model=MODEL_CHAT, messages=history, stream=True)
     return stream
 
 def chat_vision(image, prompt):
     system_prompt = """Kamu adalah Fanilla AI dengan kemampuan vision. Jawab pertanyaan tentang gambar dengan detail, santai, dan helpful.
     Kalo ditanya harga barang dari foto, kasih estimasi harga pasaran + disclaimer kalo itu cuma perkiraan."""
-
     base64_image = encode_image_to_base64(image)
     messages = [
         {"role": "system", "content": system_prompt},
@@ -174,17 +179,12 @@ def generate_image(prompt, style="Realistic"):
 # ==================== SIDEBAR - SISTEM OBROLAN ====================
 with st.sidebar:
     st.markdown("### ✨ Fanilla AI")
-
     if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
         buat_chat_baru()
         st.rerun()
-
     st.divider()
     st.markdown("**Obrolan**")
-
-    # Sortir chat dari terbaru
     sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
-
     for chat_id, chat_data in sorted_chats:
         col1, col2 = st.columns([0.8, 0.2])
         with col1:
@@ -201,7 +201,6 @@ with st.sidebar:
             if st.button("🗑️", key=f"del_{chat_id}", help="Hapus obrolan"):
                 hapus_chat(chat_id)
                 st.rerun()
-
     st.divider()
     st.caption(f"Model: Llama 3.3 | Vision: Llama 4 Scout")
 
@@ -213,7 +212,6 @@ messages = active_chat["messages"]
 st.markdown('<p class="fanilla-title">✨ Fanilla AI</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="fanilla-caption">{active_chat["title"]}</p>', unsafe_allow_html=True)
 
-# Render history chat aktif
 for msg in messages:
     avatar = "✨" if msg["role"] == "assistant" else "🧑‍💻"
     with st.chat_message(msg["role"], avatar=avatar):
@@ -226,7 +224,6 @@ for msg in messages:
             st.markdown(msg["content"])
 
 # ==================== LOGIKA MODE ====================
-# MODE 1: GENERATE GAMBAR
 if st.session_state.mode == "generating_image":
     with st.chat_message("assistant", avatar="✨"):
         with st.spinner(f"Fanilla lagi ngelukis style {st.session_state.selected_style}... 🎨"):
@@ -243,7 +240,6 @@ if st.session_state.mode == "generating_image":
     ganti_judul_otomatis(st.session_state.active_chat_id)
     st.rerun()
 
-# MODE 2: PILIH STYLE
 if st.session_state.mode == "style_select":
     with st.chat_message("assistant", avatar="✨"):
         st.markdown("Pilih style gambarnya bro:")
@@ -254,21 +250,16 @@ if st.session_state.mode == "style_select":
                 st.session_state.mode = "generating_image"
                 st.rerun()
 
-# MODE 3: IDLE - NUNGGU INPUT
 if st.session_state.mode == "idle":
     prompt = st.chat_input("Ketik pesan, /gambar, atau upload foto...", accept_file=True, file_type=["jpg", "jpeg", "png"])
-
     if prompt:
-        # SUB-MODE: UPLOAD GAMBAR
         if prompt.get("files"):
             uploaded_file = prompt["files"][0]
             image = Image.open(uploaded_file)
             user_text = prompt.get("text", "Jelaskan gambar ini dong")
             messages.append({"role": "user", "content": image, "type": "user_image", "prompt": user_text})
-
             with st.chat_message("user", avatar="🧑‍💻"):
                 st.image(image, caption=user_text)
-
             with st.chat_message("assistant", avatar="✨"):
                 placeholder = st.empty()
                 full_response = ""
@@ -286,15 +277,11 @@ if st.session_state.mode == "idle":
                 messages.append({"role": "assistant", "content": full_response, "type": "text"})
             ganti_judul_otomatis(st.session_state.active_chat_id)
             st.rerun()
-
-        # SUB-MODE: CHAT TEKS
         elif prompt.get("text"):
             user_text = prompt["text"]
             messages.append({"role": "user", "content": user_text, "type": "text"})
-
             with st.chat_message("user", avatar="🧑‍💻"):
                 st.markdown(user_text)
-
             if user_text.startswith("/gambar "):
                 st.session_state.image_prompt = user_text.replace("/gambar ", "")
                 st.session_state.mode = "style_select"
