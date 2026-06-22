@@ -77,8 +77,9 @@ if "messages" not in st.session_state:
             "type": "text"
         }
     ]
+if "generating_image" not in st.session_state:
+    st.session_state.generating_image = False
 
-# --- UPGRADE FUNGSI GAMBAR ---
 STYLE_PROMPTS = {
     "Realistic": "photorealistic, 8k, ultra detailed, professional photography, sharp focus, cinematic lighting",
     "Anime": "anime style, studio ghibli, vibrant colors, detailed, key visual",
@@ -91,14 +92,13 @@ def generate_image(prompt, style="Realistic"):
     if not st.secrets.get("HF_TOKEN"):
         return "Buat bikin gambar, lo harus set `HF_TOKEN` dulu di Secrets bro. Dapetin gratis di huggingface.co"
     try:
-        # Auto enhance prompt biar hasilnya pro
         style_text = STYLE_PROMPTS.get(style, STYLE_PROMPTS["Realistic"])
         enhanced_prompt = f"{prompt}, {style_text}"
         negative_prompt = "multiple, duplicate, blurry, low quality, distorted, deformed, ugly, bad anatomy, watermark, text, signature, worst quality, jpeg artifacts, cropped, out of frame"
 
         image = hf_client.text_to_image(
             enhanced_prompt,
-            model="stabilityai/stable-diffusion-3-medium-diffusers", # MODEL UPGRADE KE SD3
+            model="stabilityai/stable-diffusion-3-medium-diffusers",
             negative_prompt=negative_prompt,
         )
         return image
@@ -131,38 +131,43 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar=avatar):
         if msg.get("type") == "image":
             st.image(msg["content"], caption=msg.get("caption", ""))
-            # INI NOTE PERINGATANNYA BRO
             st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
         else:
             st.markdown(msg["content"])
 
-# --- INPUT + PILIH STYLE ---
-if "style" not in st.session_state:
-    st.session_state.style = "Realistic"
+# --- LOGIKA BARU: KALO LAGI PROSES GAMBAR ---
+if st.session_state.generating_image:
+    with st.chat_message("assistant", avatar="✨"):
+        with st.spinner(f"Fanilla lagi ngelukis style {st.session_state.selected_style}... 🎨"):
+            result = generate_image(st.session_state.image_prompt, st.session_state.selected_style)
 
+            if isinstance(result, str):
+                st.error(result)
+                st.session_state.messages.append({"role": "assistant", "content": result, "type": "text"})
+            else:
+                st.image(result, caption=f"Prompt: {st.session_state.image_prompt} | Style: {st.session_state.selected_style}")
+                st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
+                st.session_state.messages.append({
+                    "role": "assistant", "content": result, "type": "image",
+                    "caption": f"Prompt: {st.session_state.image_prompt} | Style: {st.session_state.selected_style}"
+                })
+
+    # Reset state
+    st.session_state.generating_image = False
+    del st.session_state.selected_style
+    del st.session_state.image_prompt
+    st.rerun()
+
+# --- INPUT USER ---
 if prompt := st.chat_input("Ketik pesan atau /gambar..."):
-    st.session_state.prompt = prompt
-
-if "prompt" in st.session_state:
-    prompt = st.session_state.prompt
-    del st.session_state.prompt
-
     st.session_state.messages.append({"role": "user", "content": prompt, "type": "text"})
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(prompt)
 
     if prompt.startswith("/gambar "):
-        # TAMPILIN PILIHAN STYLE
-        with st.chat_message("assistant", avatar="✨"):
-            st.markdown("Pilih style gambarnya bro:")
-            cols = st.columns(3)
-            styles = list(STYLE_PROMPTS.keys())
-
-            for i, style_name in enumerate(styles):
-                if cols[i % 3].button(style_name, key=f"style_{style_name}", use_container_width=True):
-                    st.session_state.selected_style = style_name
-                    st.session_state.image_prompt = prompt.replace("/gambar ", "")
-                    st.rerun()
+        st.session_state.image_prompt = prompt.replace("/gambar ", "")
+        st.session_state.show_style_buttons = True
+        st.rerun()
     else:
         with st.chat_message("assistant", avatar="✨"):
             placeholder = st.empty()
@@ -180,36 +185,29 @@ if "prompt" in st.session_state:
 
             st.session_state.messages.append({"role": "assistant", "content": full_response, "type": "text"})
 
-# --- PROSES GENERATE GAMBAR SETELAH PILIH STYLE ---
-if "selected_style" in st.session_state:
+# --- TAMPILIN TOMBOL STYLE - UDAH DIBENERIN ---
+if st.session_state.get("show_style_buttons"):
     with st.chat_message("assistant", avatar="✨"):
-        with st.spinner(f"Fanilla lagi ngelukis style {st.session_state.selected_style}... 🎨"):
-            image_prompt = st.session_state.image_prompt
-            result = generate_image(image_prompt, st.session_state.selected_style)
-
-            if isinstance(result, str):
-                st.error(result)
-                st.session_state.messages.append({"role": "assistant", "content": result, "type": "text"})
-            else:
-                st.image(result, caption=f"Prompt: {image_prompt} | Style: {st.session_state.selected_style}")
-                st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
-                st.session_state.messages.append({
-                    "role": "assistant", "content": result, "type": "image",
-                    "caption": f"Prompt: {image_prompt} | Style: {st.session_state.selected_style}"
-                })
-
-    del st.session_state.selected_style
-    del st.session_state.image_prompt
-    st.rerun()
+        st.markdown("Pilih style gambarnya bro:")
+        cols = st.columns(3)
+        styles = list(STYLE_PROMPTS.keys())
+        for i, style_name in enumerate(styles):
+            if cols[i % 3].button(style_name, key=f"style_btn_{style_name}", use_container_width=True):
+                st.session_state.selected_style = style_name
+                st.session_state.generating_image = True
+                st.session_state.show_style_buttons = False
+                st.rerun()
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("✨ Fanilla AI V4")
+    st.header("✨ Fanilla AI V4.1")
     st.markdown("**Model Chat:** Llama 3.3 70B\n**Model Image:** SD3-Medium")
     if st.button("🔄 New Chat", use_container_width=True):
         st.session_state.messages = [
             {"role": "assistant", "content": "Sip, obrolan baru bro! Mau bikin gambar apa? ✨", "type": "text"}
         ]
+        st.session_state.generating_image = False
+        st.session_state.show_style_buttons = False
         st.rerun()
     st.divider()
     st.caption("Tips: `/gambar prompt lo` terus pilih style")
