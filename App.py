@@ -1,5 +1,4 @@
 import streamlit as st
-from groq import Groq
 from openai import OpenAI
 from PIL import Image
 import time, base64, io
@@ -30,16 +29,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== INIT ====================
+# ==================== INIT GEMMA 3 31B ====================
 try:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    # PAKE OPENROUTER BUAT VISION GEMINI
-    openrouter_client = OpenAI(
+    client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=st.secrets["OPENROUTER_API_KEY"],
     )
 except Exception as e:
-    st.error(f"API Key Error: {e}. Cek Secrets OPENROUTER_API_KEY sama GROQ_API_KEY")
+    st.error(f"API Key Error: {e}. Cek Secrets OPENROUTER_API_KEY")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -58,76 +55,79 @@ def search_web(query):
         return "Search error."
     return "Tidak ada hasil."
 
-def chat_stream(messages):
+def gemma_chat_stream(messages, is_vision=False, image_b64=None):
+    """CHAT + VISION PAKE GEMMA 3 31B FREE"""
     try:
-        user_msg = messages[-1]["content"].lower()
-        need_search = any(word in user_msg for word in ["hari ini", "terbaru", "sekarang", "harga", "berita", "2024", "2025", "2026"])
+        user_msg = messages[-1]["content"]
 
-        if need_search:
-            with st.spinner("🔍 Searching..."):
-                search_result = search_web(messages[-1]["content"])
-                messages[-1]["content"] += f"\n\n[INFO WEB]:\n{search_result}"
+        # AUTO SEARCH KALO NANYA REALTIME
+        if not is_vision:
+            user_lower = user_msg.lower()
+            need_search = any(word in user_lower for word in ["hari ini", "terbaru", "sekarang", "harga", "berita", "2024", "2025", "2026", "skor", "cuaca"])
+            if need_search:
+                with st.spinner("🔍 Searching..."):
+                    search_result = search_web(user_msg)
+                    user_msg += f"\n\n[INFO WEB]:\n{search_result}"
 
         tz = pytz.timezone('Asia/Jakarta')
         date_now = datetime.now(tz).strftime("%d %B %Y")
-        system = {"role": "system", "content": f"Kamu Fanilla AI dari FNL. Tanggal {date_now}. Jawab santai pake 'bro'."}
-        chat_history = [system] + [{"role": m["role"], "content": m["content"]} for m in messages if m["type"] == "text"]
+        system_prompt = f"Kamu Fanilla AI dari FNL. Tanggal {date_now}. Jawab santai pake 'bro'. Singkat jelas max 3 kalimat. Kalo logo kasih rating 1-10."
 
-        stream = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=chat_history,
+        if is_vision:
+            content = [
+                {"type": "text", "text": f"{system_prompt}\n\nUser tanya: {user_msg}"},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+            ]
+            msg = [{"role": "user", "content": content}]
+        else:
+            chat_history = [{"role": "system", "content": system_prompt}]
+            for m in messages:
+                if m["type"] == "text":
+                    chat_history.append({"role": m["role"], "content": m["content"]})
+            msg = chat_history
+
+        stream = client.chat.completions.create(
+            model="google/gemma-3-31b-it:free", # GEMMA 3 31B FREE
+            messages=msg,
             stream=True,
-            timeout=10,
-            max_tokens=500
+            timeout=15,
+            max_tokens=300,
+            extra_headers={
+                "HTTP-Referer": "https://fanilla.streamlit.app",
+                "X-Title": "Fanilla AI",
+            }
         )
 
         full = ""
         start = time.time()
         for chunk in stream:
-            if time.time() - start > 10: break
+            if time.time() - start > 15:
+                break
             if chunk.choices[0].delta.content:
                 full += chunk.choices[0].delta.content
                 yield full
     except Exception as e:
-        yield f"Error Chat: {str(e)}"
-
-def vision_gemini(image, prompt):
-    """VISION PAKE GEMINI FLASH VIA OPENROUTER - DIJAMIN IDUP 24 JAM"""
-    try:
-        st.toast("Analisis pake Gemini...", icon="✨")
-        image.thumbnail((768, 768))
-        buffered = io.BytesIO()
-        image.save(buffered, format="JPEG", quality=85)
-        base64_image = base64.b64encode(buffered.getvalue()).decode()
-
-        response = openrouter_client.chat.completions.create(
-            model="google/gemini-flash-1.5", # GRATIS 50 REQ/HARI
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": f"Deskripsi gambar ini. User tanya: {prompt}. Jawab 'bro', rating 1-10 kalo logo. Max 3 kalimat."},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                ]
-            }],
-            max_tokens=200,
-            timeout=15
-        )
-        yield response.choices[0].message.content
-    except Exception as e:
-        yield f"Error Vision Gemini: {str(e)[:100]}. Cek OPENROUTER_API_KEY di Secrets."
+        yield f"Error Gemma: {str(e)[:150]}"
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.markdown("### ✨ Fanilla AI")
+    st.caption("Powered by Gemma 3 31B")
     if st.button("🗑️ Hapus Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-    st.caption("Fanilla AI v10.3 © FNL 2026")
+    st.markdown("---")
+    st.markdown("**Fitur:**")
+    st.caption("💬 Chat + Search")
+    st.caption("👁️ Vision Gambar")
+    st.markdown("---")
+    st.caption("Limit: 50 req/hari")
+    st.caption("Fanilla AI v10.5 © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Powered by Gemini Vision. Upload logo FNL coba bro.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Powered by Gemma 3 31B. Upload logo FNL coba bro.</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -147,24 +147,44 @@ prompt = st.chat_input(
 if prompt and not st.session_state.processing:
     st.session_state.processing = True
 
+    # HANDLE GAMBAR
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
         user_text = prompt.get("text", "Gimana gambar ini?")
-        st.session_state.messages.append({"role": "user", "content": image, "type": "image", "caption": user_text})
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": image,
+            "type": "image",
+            "caption": user_text
+        })
+
         with st.chat_message("user"):
             st.image(image, caption=user_text)
+
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
             try:
-                for chunk in vision_gemini(image, user_text):
+                st.toast("Analisis pake Gemma 3 31B...", icon="✨")
+                image.thumbnail((768, 768))
+                buffered = io.BytesIO()
+                image.save(buffered, format="JPEG", quality=85)
+                base64_image = base64.b64encode(buffered.getvalue()).decode()
+
+                for chunk in gemma_chat_stream([{"role": "user", "content": user_text, "type": "text"}], is_vision=True, image_b64=base64_image):
                     full_response = chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response, "type": "text"})
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": full_response,
+                    "type": "text"
+                })
             except Exception as e:
                 placeholder.error(f"Error: {e}")
 
+    # HANDLE TEKS
     elif prompt.get("text"):
         user_text = prompt["text"]
         st.session_state.messages.append({"role": "user", "content": user_text, "type": "text"})
@@ -174,11 +194,15 @@ if prompt and not st.session_state.processing:
             placeholder = st.empty()
             full_response = ""
             try:
-                for chunk in chat_stream(st.session_state.messages):
+                for chunk in gemma_chat_stream(st.session_state.messages):
                     full_response = chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response, "type": "text"})
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": full_response,
+                    "type": "text"
+                })
             except Exception as e:
                 placeholder.error(f"Error: {e}")
 
