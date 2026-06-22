@@ -4,9 +4,10 @@ from huggingface_hub import InferenceClient
 from PIL import Image
 import time, base64, io, uuid, asyncio
 from datetime import datetime
+import pytz # <-- BARU
 import fitz # PyMuPDF
 from duckduckgo_search import DDGS
-import edge_tts # <-- GANTI gTTS
+import edge_tts
 from streamlit_mic_recorder import mic_recorder
 import speech_recognition as sr
 
@@ -34,7 +35,7 @@ def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.6 nih pake Edge TTS. Suara lebih jernih. Coba chat 'halo' ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.7 nih. Udah tau tanggal hari ini + pake Edge TTS. Coba tanya 'hari ini tanggal berapa' ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -70,7 +71,6 @@ def search_internet(query):
         return f"Search error: {e}"
 
 async def _edge_tts_async(text, voice="id-ID-ArdiNeural"):
-    """Async function buat edge-tts"""
     communicate = edge_tts.Communicate(text, voice)
     audio_data = b""
     async for chunk in communicate.stream():
@@ -79,11 +79,9 @@ async def _edge_tts_async(text, voice="id-ID-ArdiNeural"):
     return audio_data
 
 def text_to_speech(text):
-    """TTS V8.6 - Pake Edge TTS"""
     try:
         if not text or len(text.strip()) == 0: return None
-        # Jalankan async function
-        audio_data = asyncio.run(_edge_tts_async(text[:500])) # Limit 500 karakter
+        audio_data = asyncio.run(_edge_tts_async(text[:500]))
         fp = io.BytesIO(audio_data)
         fp.seek(0)
         return fp
@@ -100,8 +98,18 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
+    """V8.7 - FIX TIME AWARE"""
     try:
-        history = [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
+        # 1. KASIH JAM DINDING KE AI
+        tz = pytz.timezone('Asia/Jakarta')
+        tanggal_hari_ini = datetime.now(tz).strftime("%A, %d %B %Y, %H:%M WIB")
+        system_prompt = {
+            "role": "system",
+            "content": f"Kamu adalah Fanilla AI. Hari ini adalah {tanggal_hari_ini}. Tahun sekarang 2026. Knowledge cutoff kamu Desember 2023. Untuk info terbaru setelah 2023 seperti berita/harga saham, jawab 'saya perlu search internet dulu' lalu gunakan infomu. Selalu jawab santai pake 'bro'."
+        }
+
+        # 2. Gabungin system + history
+        history = [system_prompt] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
         return groq_client.chat.completions.create(model=model, messages=history, stream=True)
     except Exception as e:
         st.error(f"Error AI: {e}")
@@ -277,7 +285,7 @@ if prompt:
                 placeholder.markdown(full_response)
                 messages.append({"role": "assistant", "content": full_response, "type": "text"})
 
-                # VOICE OUTPUT - EDGE TTS V8.6
+                # VOICE OUTPUT - EDGE TTS
                 with st.spinner("Bikin suara..."):
                     audio_fp = text_to_speech(full_response)
                     if audio_fp:
