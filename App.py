@@ -162,6 +162,27 @@ if audio: # FITUR VOICE INPUT
     if text: prompt = {"text": text}
 
 if prompt:
+    user_text = prompt.get("text", "")
+    messages.append({"role": "user", "content": user_text, "type": "text"})
+    with st.chat_message("user"): st.markdown(user_text)
+
+    with st.chat_message("assistant"):
+        # FIX UTAMA DISINI
+        history = [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type")=="text"]
+        stream = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=history,
+            stream=True
+        )
+        response = st.write_stream(stream)
+        messages.append({"role": "assistant", "content": response, "type": "text"})
+
+        # FITUR VOICE OUTPUT
+        audio_fp = text_to_speech(response[:500])
+        if audio_fp:
+            st.audio(audio_fp)
+            messages.append({"role": "assistant", "content": audio_fp, "type": "audio"})
+    st.rerun()if prompt:
     # Logic chat biasa + vision + /gambar kayak V7.2, tambahin aja
     user_text = prompt.get("text", "")
     messages.append({"role": "user", "content": user_text, "type": "text"})
