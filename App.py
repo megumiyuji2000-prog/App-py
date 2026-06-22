@@ -40,7 +40,7 @@ def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V9.0.1 nih. Vision udah double engine. Upload logo FNL coba ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V9.0.2 nih. Vision pake Llama-4-Maverick. Upload logo FNL coba ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -67,7 +67,6 @@ def baca_pdf(file):
         return f"Gagal baca PDF: {e}"
 
 def search_internet(query):
-    """V9.0.1 - TRIPLE ENGINE: DDG > Google > Fallback"""
     hasil_final = []
     try:
         with DDGS() as ddgs:
@@ -124,7 +123,6 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """V9.0.1 - AUTO SEARCH + TIME AWARE"""
     try:
         user_terakhir = messages[-1]["content"].lower()
         keyword_realtime = ["hari ini", "terbaru", "sekarang", "harga", "kurs", "berita", "cuaca", "siapa yang", "kapan", "skor", "update", "2024", "2025", "2026", "hasil"]
@@ -152,9 +150,9 @@ def chat_ai(messages, model="llama-3.3-70b-versatile"):
         return None
 
 def chat_vision(images, prompt):
-    """V9.0.1 - DOUBLE ENGINE: Llama-4 > LLaVA + Debug Error"""
+    """V9.0.2 - Pake Llama-4-Maverick + Debug Super Jelas"""
     try:
-        content_list = [{"type": "text", "text": f"Lo adalah Fanilla AI buatan FNL. User upload gambar. Pertanyaan user: {prompt}. Jawab santai pake 'bro', kasih rating 1-10, jelasin filosofinya kalo itu logo."}]
+        content_list = [{"type": "text", "text": f"Lo adalah Fanilla AI, produk dari FNL. User upload gambar logo FNL. Pertanyaan: {prompt}. Jawab pake 'bro', kasih rating 1-10, jelasin filosofi F-N-L nya. Kalo ga tau bilang ga tau."}]
 
         for image in images:
             buffered = io.BytesIO()
@@ -164,31 +162,26 @@ def chat_vision(images, prompt):
 
         messages = [{"role": "user", "content": content_list}]
 
-        # MESIN 1: LLAMA-4-SCOUT
-        try:
-            st.toast("Coba Llama-4 Vision...", icon="🦙")
-            return groq_client.chat.completions.create(
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                messages=messages,
-                stream=True,
-                timeout=60
-            )
-        except Exception as e1:
-            # MESIN 2: LLAVA-V1.5 - CADANGAN
-            st.toast(f"Llama-4 gagal: {str(e1)[:50]}... Coba LLaVA", icon="⚠️")
-            return groq_client.chat.completions.create(
-                model="llava-v1.5-7b-4096-preview",
-                messages=messages,
-                stream=True,
-                timeout=60
-            )
+        st.toast("Panggil Llama-4-Maverick...", icon="🚀")
+        return groq_client.chat.completions.create(
+            model="meta-llama/llama-4-maverick-17b-128e-instruct",
+            messages=messages,
+            stream=True,
+            timeout=90
+        )
 
     except Exception as e:
-        st.error(f"Error Vision Total: {e}") # BIAR KETAUAN ERRORNYA
+        error_msg = str(e)
+        st.error(f"GAGAL VISION: {error_msg}")
+        if "rate_limit" in error_msg.lower():
+            st.warning("Limit Groq abis bro. Tunggu jam 7 pagi WIB atau pake API key baru.")
+        elif "model_decommissioned" in error_msg.lower():
+            st.warning("Modelnya dimatiin Groq bro. Coba lagi 1 jam.")
+        else:
+            st.warning("Error ga dikenal. SS error ini kirim ke gw.")
         return None
 
 def proses_video(file):
-    """V9.0.1 - Ekstrak 5 frame dari video buat dianalisis AI"""
     try:
         tfile = io.BytesIO(file.read())
         with open("temp_video.mp4", "wb") as f:
@@ -326,7 +319,7 @@ elif st.session_state.mode == "gambar":
                 messages.append({"role": "assistant", "content": result, "type": "image", "caption": prompt_gambar})
             st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
 
-# ==================== INPUT UTAMA - UPGRADE VIDEO ====================
+# ==================== INPUT UTAMA ====================
 col1, col2 = st.columns([0.9, 0.1])
 with col1:
     prompt = st.chat_input("Ketik / upload gambar / video...", accept_file=True, file_type=["jpg", "png", "jpeg", "mp4", "mov", "avi"])
@@ -407,4 +400,4 @@ if prompt:
 
 # FOOTER FNL
 st.markdown("---")
-st.caption("Fanilla AI is a product of FNL ™ 2026")
+st.caption("Fanilla AI is a product of FNL © 2026")
