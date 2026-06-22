@@ -34,8 +34,11 @@ try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-2.5-flash')
     HF_TOKEN = st.secrets["HF_TOKEN"]
+except KeyError as e:
+    st.error(f"❌ Secrets Error: `{e}` tidak ditemukan. Wajib ada `GEMINI_API_KEY` & `HF_TOKEN` di Settings > Secrets")
+    st.stop()
 except Exception as e:
-    st.error(f"Secrets Error: {e}. Wajib ada GEMINI_API_KEY & HF_TOKEN di Settings > Secrets")
+    st.error(f"❌ Init Error: {e}")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -47,27 +50,36 @@ if "user_style" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== IMAGE GEN V14.4 ====================
+# ==================== IMAGE GEN V14.5 ====================
 def generate_image_hf(prompt):
+    """V14.5 - LOG DETAIL + ERROR JELAS"""
     API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
     try:
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
+        with st.spinner(f"🔄 Kontak server HuggingFace..."):
+            response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
+
         if response.status_code == 200:
             image = Image.open(io.BytesIO(response.content))
             return image, None
         elif response.status_code == 503:
-            return None, "Model FLUX lagi loading. Tunggu 30 detik terus coba lagi."
+            return None, "Model FLUX lagi loading/overload. Ini normal. Tunggu 30 detik terus `/gambar` lagi."
         elif response.status_code == 401:
-            return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets."
+            return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets. Format harus `hf_...`"
         elif response.status_code == 429:
-            return None, "Rate limit HuggingFace. Coba 1 menit lagi."
+            return None, "Rate limit HuggingFace. Kebanyakan request. Coba 1 menit lagi."
+        elif response.status_code == 400:
+            return None, f"Prompt ditolak HF: {response.text}. Coba ganti prompt."
         else:
-            return None, f"Error HF {response.status_code}: {response.text[:150]}"
+            return None, f"Error HF {response.status_code}: {response.text[:200]}"
+
     except requests.exceptions.Timeout:
-        return None, "Timeout 60 detik. Server HF lemot. Coba lagi."
+        return None, "Timeout 60 detik. Server HF lemot banget. Coba lagi."
+    except requests.exceptions.ConnectionError:
+        return None, "Gagal konek ke HuggingFace. Cek internet atau server HF lagi down."
     except Exception as e:
-        return None, f"Error: {str(e)}"
+        return None, f"Error Python: {str(e)}"
 
 # ==================== CORE ====================
 def detect_user_style(text):
@@ -93,18 +105,25 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def handle_image_command(prompt_text):
-    """V14.4 - FIX TOTAL. Ga pake yield biar ga diem"""
+    """V14.5 - FIX LOADING ILANG. ERROR PASTI MUNCUL"""
     clean_prompt = prompt_text.replace("/gambar", "", 1).strip()
     if not clean_prompt:
         st.error("Promptnya kosong bro 😭\nContoh: `/gambar kucing pakai kacamata cyberpunk 4k`")
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "Prompt `/gambar` kosong bro. Kasih deskripsi.",
+            "type": "text"
+        })
         return
 
-    with st.status(f"🎨 Lagi generate: `{clean_prompt}`...", expanded=True) as status:
-        st.write("Kirim request ke HuggingFace FLUX...")
+    # PAKE CONTAINER BIAR GA ILANG
+    with st.container():
+        st.info(f"🎨 Otw generate: `{clean_prompt}`\n\nModel FLUX kalo baru bangun butuh 20-30 detik...")
+
         img, error = generate_image_hf(clean_prompt)
 
         if img:
-            status.update(label="✅ Berhasil!", state="complete")
+            st.success("✅ Berhasil Generate!")
             st.image(img, caption=f"Generated: {clean_prompt}")
             st.session_state.messages.append({
                 "role": "assistant",
@@ -113,18 +132,27 @@ def handle_image_command(prompt_text):
                 "caption": f"Generated: {clean_prompt}"
             })
         else:
-            status.update(label="❌ Gagal", state="error")
-            st.error(f"**Gagal generate bro:**\n\n`{error}`\n\n**Cek:**\n1. `HF_TOKEN` udah bener di Secrets?\n2. Coba lagi 30 detik\n3. Prompt jangan aneh-aneh")
+            st.error(f"❌ **Gagal generate:**\n\n`{error}`")
+            st.warning("""
+**Checklist Debug:**
+1. `HF_TOKEN` udah ada di Secrets? Format: `hf_xxxxxxxx`
+2. Token role-nya `read`? Bukan `write`
+3. Coba lagi 30 detik kalo error 503
+4. Prompt jangan pake kata NSFW
+            """)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"❌ Gagal generate: {error}",
+                "type": "text"
+            })
 
 def ai_stream_gemini(prompt_text, image=None):
     st.session_state.user_style = detect_user_style(prompt_text)
 
-    # COMMAND /gambar - PINDAH KE FUNGSI SENDIRI BIAR GA BUG
     if prompt_text.lower().startswith("/gambar"):
         handle_image_command(prompt_text)
-        return # PENTING: return kosong biar ga lanjut ke Gemini
+        return # STOP DISINI
 
-    # AUTO SEARCH
     user_lower = prompt_text.lower()
     need_search = any(word in user_lower for word in [
         "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
@@ -234,7 +262,6 @@ if prompt and not st.session_state.processing:
             st.image(image, caption=user_text)
 
         with st.chat_message("assistant"):
-            # Cek dulu kalo /gambar + upload gambar
             if user_text.lower().startswith("/gambar"):
                 handle_image_command(user_text)
             else:
@@ -260,7 +287,6 @@ if prompt and not st.session_state.processing:
         with st.chat_message("user"):
             st.markdown(user_text)
         with st.chat_message("assistant"):
-            # Cek /gambar dulu sebelum stream
             if user_text.lower().startswith("/gambar"):
                 handle_image_command(user_text)
             else:
