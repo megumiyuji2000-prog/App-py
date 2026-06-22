@@ -5,10 +5,10 @@ Pillow
 PyMuPDF
 duckduckgo-search
 googlesearch-python
+beautifulsoup4
+requests
+pytz
 edge-tts
 streamlit-mic-recorder
 SpeechRecognition
 pydub
-pytz
-beautifulsoup4
-requests
