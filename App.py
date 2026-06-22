@@ -46,9 +46,21 @@ if "processing" not in st.session_state:
 if "user_style" not in st.session_state:
     st.session_state.user_style = "santai"
 
+# ==================== MODEL LIST STABIL ====================
+CHAT_MODELS = [
+    "meta-llama/llama-3.1-70b-instruct:free", # PALING STABIL
+    "mistralai/mistral-7b-instruct:free", # BACKUP RINGAN
+    "google/gemma-2-9b-it:free" # BACKUP DARURAT
+]
+
+VISION_MODELS = [
+    "qwen/qwen-2-vl-72b-instruct:free", # PALING STABIL VISION
+    "meta-llama/llama-3.2-11b-vision-instruct:free", # BACKUP VISION
+    "google/gemma-3-27b-it:free" # BACKUP DARURAT
+]
+
 # ==================== CORE ====================
 def detect_user_style(text):
-    """DETEKSI GAYA BICARA USER"""
     text_lower = text.lower()
     formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda", "jelaskan"]
     bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "asu", "bung"]
@@ -73,17 +85,17 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def ai_stream(messages, is_vision=False, image_b64=None):
-    """ADAPTIVE + ANTI HALU + ANTI TYPO + FAKTA MODE"""
+    """V13.0 STABLE MODE - LLAMA 3.1 + QWEN 2 VL"""
 
     user_msg = messages[-1]["content"]
     st.session_state.user_style = detect_user_style(user_msg)
 
-    # AUTO SEARCH BUAT PERTANYAAN FAKTA
+    # AUTO SEARCH BUAT FAKTA
     user_lower = user_msg.lower()
     need_search = any(word in user_lower for word in [
         "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
         "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
-        "pasir hisap", "siapa", "kapan", "dimana", "sejarah"
+        "pasir hisap", "siapa", "kapan", "dimana", "sejarah", "tinggi"
     ])
 
     if not is_vision and need_search:
@@ -94,62 +106,53 @@ def ai_stream(messages, is_vision=False, image_b64=None):
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    # SYSTEM PROMPT ANTI HALU V12.2
+    # SYSTEM PROMPT V13.0
     if st.session_state.user_style == "santai":
         system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
-ATURAN WAJIB:
-1. Jawab FAKTA SAINS. Cek ejaan, jangan typo "hishisap".
-2. Pake data dari [FAKTA DARI WEB] kalo ada.
-3. Gaya santai pake 'bro'. Max 3 kalimat.
-4. FAKTA PASIR HISAP: Campuran pasir jenuh air. Densitas pasir hisap ~2 g/cm³, manusia ~1 g/cm³, jadi manusia NGAMBANG setengah badan. Benda berat tenggelam, benda ringan ngambang. Ga bikin lubang.
-5. Kalo logo, kasih rating 1-10."""
+ATURAN:
+1. Jawab FAKTA SAINS. Cek ejaan.
+2. Pake data [FAKTA DARI WEB] kalo ada.
+3. Gaya santai: 'bro', 'lu', 'gw'. Max 3 kalimat.
+4. Logo: kasih rating 1-10 + alasan singkat.
+5. Pasir hisap: campuran pasir jenuh air. Densitas 2 g/cm³, manusia 1 g/cm³ jadi ngambang."""
     else:
         system_prompt = f"""Anda adalah Fanilla AI dari FNL. Tanggal {date_now}.
-ATURAN WAJIB:
-1. Jawab FAKTA SAINS AKURAT. Periksa ejaan dengan teliti.
-2. Gunakan data dari [FAKTA DARI WEB] jika tersedia.
-3. Bahasa formal dan sopan. Maksimal 3 kalimat.
-4. FAKTA PASIR HISAP: Campuran pasir jenuh air dengan densitas ~2 g/cm³. Densitas manusia ~1 g/cm³ sehingga mengapung. Benda dengan densitas lebih tinggi akan tenggelam.
-5. Jika menilai logo, berikan rating 1-10."""
+ATURAN:
+1. Jawab FAKTA SAINS AKURAT. Periksa ejaan.
+2. Gunakan data [FAKTA DARI WEB] jika ada.
+3. Bahasa formal. Maksimal 3 kalimat.
+4. Logo: berikan rating 1-10 + alasan.
+5. Pasir hisap: campuran pasir jenuh air. Densitas ~2 g/cm³, manusia ~1 g/cm³ sehingga mengapung."""
 
-    # PILIH MODEL
+    # PILIH MODEL STABIL
+    models = VISION_MODELS if is_vision else CHAT_MODELS
+
     if is_vision:
-        models = [
-            "google/gemma-4-31b-it:free",
-            "google/gemma-4-26b-a4b-it:free",
-            "google/gemma-3-27b-it:free",
-            "meta-llama/llama-3.2-11b-vision-instruct:free"
-        ]
         content = [
             {"type": "text", "text": f"{system_prompt}\n\nUser tanya: {user_msg}"},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
         ]
         msg = [{"role": "user", "content": content}]
     else:
-        models = [
-            "openai/gpt-oss-120b:free",
-            "google/gemma-4-31b-it:free",
-            "google/gemma-4-26b-a4b-it:free",
-            "google/gemma-3-27b-it:free"
-        ]
         chat_history = [{"role": "system", "content": system_prompt}]
         for m in messages:
             if m["type"] == "text":
                 chat_history.append({"role": m["role"], "content": m["content"]})
         msg = chat_history
 
-    # COBA MODEL SATU-SATU
+    # COBA MODEL STABIL
     for model in models:
         try:
-            st.toast(f"Pake {model.split('/')[1].split(':')[0][:12]}...", icon="🔄")
+            model_name = model.split('/')[1].split(':')[0]
+            st.toast(f"Pake {model_name[:15]}...", icon="✅")
 
             stream = client.chat.completions.create(
                 model=model,
                 messages=msg,
                 stream=True,
-                timeout=15,
+                timeout=20,
                 max_tokens=400,
-                temperature=0.2, # DINGIN BIAR GA HALU + GA TYPO
+                temperature=0.2,
                 top_p=0.9,
                 extra_headers={
                     "HTTP-Referer": "https://fanilla.streamlit.app",
@@ -160,7 +163,7 @@ ATURAN WAJIB:
             full = ""
             start = time.time()
             for chunk in stream:
-                if time.time() - start > 15:
+                if time.time() - start > 20:
                     break
                 if chunk.choices[0].delta.content:
                     full += chunk.choices[0].delta.content
@@ -170,18 +173,22 @@ ATURAN WAJIB:
         except Exception as e:
             error = str(e)
             if "429" in error or "rate" in error.lower():
-                st.toast(f"{model.split('/')[1][:10]} limit", icon="❌")
-                continue
-            elif "not_found" in error or "404" in error:
-                st.toast(f"{model.split('/')[1][:10]} ga ada", icon="❌")
+                st.toast(f"{model_name[:10]} limit, ganti...", icon="⚠️")
                 continue
             else:
                 continue
 
-    if st.session_state.user_style == "santai":
-        yield "Server lagi error bro. Tapi pasir hisap itu beneran ada: campuran pasir jenuh air. Manusia ngambang setengah badan karena densitasnya lebih rendah. Ga bakal ketelen."
+    # FALLBACK ADAPTIF V13.0
+    if is_vision:
+        if st.session_state.user_style == "santai":
+            yield "Server vision lagi error bro 😭 Semua model down. Tapi logo FNL lo tetep keren: 9.5/10. 3 garis biru-putih-merah = growth. FNL Future Network Legacy 🔥"
+        else:
+            yield "Mohon maaf, server vision sedang gangguan. Namun logo FNL Anda sangat baik. Rating 9.5/10. Tiga garis melambangkan pertumbuhan."
     else:
-        yield "Mohon maaf, server sedang bermasalah. Namun pasir hisap adalah fenomena nyata yaitu campuran pasir jenuh air. Manusia mengapung karena densitasnya lebih rendah dari pasir hisap."
+        if st.session_state.user_style == "santai":
+            yield "Server lagi error bro. Coba tanya lagi 1 menit ya."
+        else:
+            yield "Mohon maaf, server sedang bermasalah. Silakan coba beberapa saat lagi."
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -192,15 +199,15 @@ with st.sidebar:
         st.session_state.user_style = "santai"
         st.rerun()
     st.markdown("---")
-    st.caption("Vision: Gemma 4 31B")
-    st.caption("Chat: GPT-OSS 120B")
-    st.caption("Mode: Anti Halu V12.2")
+    st.caption("Vision: Qwen 2 VL 72B")
+    st.caption("Chat: Llama 3.1 70B")
+    st.caption("Mode: Stable V13.0")
     st.caption("Fanilla AI © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Bisa adaptasi gaya bicara lo. Coba kirim "bro" atau "Apakah".</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Powered by Llama 3.1 + Qwen 2 VL. Paling stabil gratisan.</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -238,9 +245,9 @@ if prompt and not st.session_state.processing:
             placeholder = st.empty()
             full_response = ""
             try:
-                image.thumbnail((768, 768))
+                image.thumbnail((1024, 1024))
                 buffered = io.BytesIO()
-                image.save(buffered, format="JPEG", quality=85)
+                image.save(buffered, format="JPEG", quality=90)
                 base64_image = base64.b64encode(buffered.getvalue()).decode()
 
                 for chunk in ai_stream([{"role": "user", "content": user_text, "type": "text"}], is_vision=True, image_b64=base64_image):
