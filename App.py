@@ -29,10 +29,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== INIT GEMINI ====================
+# ==================== INIT GEMINI 2.5 ====================
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash') # STABIL + CEPAT + 1500 REQ/HARI
+    model = genai.GenerativeModel('gemini-2.5-flash') # MODEL TERBARU PALING GACOR
 except Exception as e:
     st.error(f"GEMINI_API_KEY Error: {e}. Cek Secrets")
     st.stop()
@@ -72,7 +72,7 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def ai_stream_gemini(prompt_text, image=None):
-    """V14.0 GEMINI MODE - 1500 REQ/HARI"""
+    """V14.1 GEMINI 2.5 FLASH - 1500 REQ/HARI"""
 
     st.session_state.user_style = detect_user_style(prompt_text)
 
@@ -81,7 +81,7 @@ def ai_stream_gemini(prompt_text, image=None):
     need_search = any(word in user_lower for word in [
         "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
         "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
-        "pasir hisap", "siapa", "kapan", "dimana", "sejarah", "tinggi"
+        "pasir hisap", "siapa", "kapan", "dimana", "sejarah", "tinggi", "rating"
     ])
 
     if need_search and not image:
@@ -92,14 +92,14 @@ def ai_stream_gemini(prompt_text, image=None):
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    # SYSTEM PROMPT V14.0
+    # SYSTEM PROMPT V14.1
     if st.session_state.user_style == "santai":
         system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
 ATURAN:
 1. Jawab FAKTA SAINS. Cek ejaan.
 2. Pake data [FAKTA DARI WEB] kalo ada.
 3. Gaya santai: 'bro', 'lu', 'gw'. Max 3 kalimat.
-4. Logo: kasih rating 1-10 + alasan singkat.
+4. Logo: kasih rating 1-10 + alasan singkat. Kalo logo FNL: 3 garis biru-putih-merah = growth/arrow naik. FNL = Future Network Legacy.
 5. Pasir hisap: campuran pasir jenuh air. Densitas 2 g/cm³, manusia 1 g/cm³ jadi ngambang.
 6. Jangan ngarang. Kalo ga tau bilang ga tau."""
     else:
@@ -108,14 +108,14 @@ ATURAN:
 1. Jawab FAKTA SAINS AKURAT. Periksa ejaan.
 2. Gunakan data [FAKTA DARI WEB] jika ada.
 3. Bahasa formal. Maksimal 3 kalimat.
-4. Logo: berikan rating 1-10 + alasan.
+4. Logo: berikan rating 1-10 + alasan. Jika logo FNL: tiga garis biru-putih-merah melambangkan pertumbuhan. FNL = Future Network Legacy.
 5. Pasir hisap: campuran pasir jenuh air. Densitas ~2 g/cm³, manusia ~1 g/cm³ sehingga mengapung.
 6. Jangan mengarang. Jika tidak tahu, sampaikan."""
 
     full_prompt = f"{system_prompt}\n\nUser: {prompt_text}"
 
     try:
-        st.toast("Pake Gemini 1.5 Flash...", icon="✨")
+        st.toast("Pake Gemini 2.5 Flash...", icon="⚡")
 
         # GEMINI HANDLE IMAGE + TEXT SEKALIGUS
         if image:
@@ -132,7 +132,9 @@ ATURAN:
     except Exception as e:
         error = str(e)
         if "429" in error or "quota" in error.lower():
-            yield "Limit Gemini 1500/hari abis bro 😭 Besok reset jam 7 pagi. Topup kalo mau unlimited."
+            yield "Limit Gemini 1500/hari abis bro 😭 Besok reset jam 7 pagi WIB. Atau topup di AI Studio kalo mau unlimited."
+        elif "500" in error or "503" in error:
+            yield "Server Gemini lagi overload bro. Coba 10 detik lagi."
         else:
             yield f"Error Gemini bro: {error}"
 
@@ -146,15 +148,15 @@ with st.sidebar:
         st.session_state.chat = model.start_chat(history=[])
         st.rerun()
     st.markdown("---")
-    st.caption("Model: Gemini 1.5 Flash")
+    st.caption("Model: Gemini 2.5 Flash")
     st.caption("Limit: 1500 req/hari")
-    st.caption("Mode: Stable V14.0")
+    st.caption("Mode: Stable V14.1")
     st.caption("Fanilla AI © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Powered by Google Gemini. Limit 1500 req/hari.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Powered by Google Gemini 2.5 Flash. Limit 1500 req/hari.</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
