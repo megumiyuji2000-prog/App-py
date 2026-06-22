@@ -137,8 +137,7 @@ def generate_chat_response():
 
     # PAKE MODEL VISION KALO ADA GAMBAR, KALO GA ADA PAKE CHAT BIASA
     has_image = any(m.get("type") == "user_image" for m in st.session_state.messages[-3:])
-    model = "llama-3.2-11b-vision-preview" if has_image else "llama-3.3-70b-versatile"
-
+    model = "meta-llama/llama-4-scout-17b-16e-instruct" if has_image else "llama-3.3-70b-versatile"
     stream = groq_client.chat.completions.create(
         model=model,
         messages=messages_for_api,
