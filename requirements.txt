@@ -2,3 +2,9 @@ streamlit
 groq
 huggingface_hub
 Pillow
+PyMuPDF
+duckduckgo-search
+gTTS
+streamlit-mic-recorder
+SpeechRecognition
+pydub
