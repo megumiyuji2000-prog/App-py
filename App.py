@@ -2,308 +2,178 @@ import streamlit as st
 from groq import Groq
 from huggingface_hub import InferenceClient
 from PIL import Image
-import time
-import base64
-import io
-import uuid
+import time, base64, io, uuid
 from datetime import datetime
+import fitz # PyMuPDF buat baca PDF
+from duckduckgo_search import DDGS # Search internet gratis
+from gtts import gTTS # Text to speech
+from streamlit_mic_recorder import mic_recorder # Voice input
+import speech_recognition as sr
 
 # ==================== CONFIG & STYLE ====================
-st.set_page_config(
-    page_title="Fanilla AI",
-    page_icon="✨",
-    layout="wide",
-    initial_sidebar_state="collapsed" # Matin sidebar bawaan, kita pake custom
-)
+st.set_page_config(page_title="Fanilla AI Ultimate", page_icon="✨", layout="wide")
+st.markdown("""<style>
+    #MainMenu, footer, header {visibility: hidden;}
+.main.block-container {padding-top: 0.5rem; max-width: 900px;}
+.stChatInput > div {background-color: #374151; border-radius: 24px;}
+.fanilla-title {background: linear-gradient(90deg, #A855F7, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.2rem; font-weight: 800; text-align: center;}
+.custom-sidebar {background-color: #111827; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;}
+</style>""", unsafe_allow_html=True)
 
-st.markdown("""
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-.main.block-container {padding-top: 0.5rem; padding-bottom: 5rem; max-width: 800px;}
-.stChatMessage[data-testid="stChatMessage"] {background-color: transparent!important;}
-    [data-testid="user-message"] {background-color: #7C3AED!important;}
-    [data-testid="assistant-message"] {background-color: #1F2937!important;}
-.stChatInput > div {background-color: #374151; border-radius: 24px; border: 1px solid #4B5563;}
-.fanilla-title {
-        background: linear-gradient(90deg, #A855F7, #EC4899);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.2rem; font-weight: 800; text-align: center; margin-bottom: 0px;
-    }
-.fanilla-caption {text-align: center; color: #9CA3AF; margin-bottom: 0.5rem;}
-.image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
-    /* SIDEBAR CUSTOM */
-.custom-sidebar {
-        background-color: #111827;
-        border: 1px solid #374151;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-.stButton > button[kind="secondary"] {
-        background-color: #1F2937;
-        border: 1px solid #374151;
-        color: #D1D5DB;
-        text-align: left;
-    }
-.stButton > button[kind="primary"] {
-        background-color: #7C3AED!important;
-        color: white!important;
-        font-weight: 600;
-        text-align: left;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ==================== INIT CLIENTS ====================
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("GROQ_API_KEY belum diset di Secrets bro!")
-    st.stop()
-
+# ==================== INIT ====================
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 hf_client = InferenceClient(token=st.secrets.get("HF_TOKEN"))
 
-# ==================== SISTEM MULTI CHAT ====================
+# ==================== SEMUA FUNGSI FITUR BARU ====================
+def baca_pdf(file):
+    """FITUR 1: Baca PDF"""
+    try:
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        text = ""
+        for page in doc: text += page.get_text()
+        return text[:12000] # Limit biar ga kepanjangan
+    except Exception as e:
+        return f"Gagal baca PDF: {e}"
+
+def search_internet(query):
+    """FITUR 2: Search Real-time"""
+    try:
+        with DDGS() as ddgs:
+            results = [r for r in ddgs.text(query, max_results=3)]
+        return "\n\n".join([f"Judul: {r['title']}\n{r['body']}\nSumber: {r['href']}" for r in results])
+    except:
+        return "Gagal search internet. Coba lagi nanti."
+
+def text_to_speech(text):
+    """FITUR 3: Voice Output"""
+    try:
+        tts = gTTS(text=text, lang='id')
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        return fp
+    except:
+        return None
+
+def voice_to_text(audio_bytes):
+    """FITUR 3: Voice Input"""
+    r = sr.Recognizer()
+    try:
+        with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
+            audio = r.record(source)
+        return r.recognize_google(audio, language='id-ID')
+    except:
+        return None
+
+# ==================== SISTEM MULTI CHAT V7.2 ====================
 def buat_chat_baru():
     chat_id = str(uuid.uuid4())
-    st.session_state.chats[chat_id] = {
-        "title": "Obrolan Baru",
-        "messages": [{
-            "role": "assistant",
-            "content": "Hai bro! Ada yang bisa gw bantu? ✨",
-            "type": "text"
-        }],
-        "created_at": datetime.now()
-    }
+    st.session_state.chats[chat_id] = {"title": "Obrolan Baru", "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8 nih. Bisa baca PDF, search internet, + ngomong. Mau coba apa? ✨", "type": "text"}], "created_at": datetime.now()}
     st.session_state.active_chat_id = chat_id
-    st.session_state.mode = "idle"
     st.session_state.show_sidebar = False
 
-def ganti_judul_otomatis(chat_id):
-    chat = st.session_state.chats[chat_id]
-    if chat["title"] == "Obrolan Baru":
-        for msg in chat["messages"]:
-            if msg["role"] == "user" and msg.get("type") == "text":
-                title = " ".join(msg["content"].split()[:4])
-                chat["title"] = title[:25] + "..." if len(title) > 25 else title
-                break
+if "chats" not in st.session_state: st.session_state.chats = {}; buat_chat_baru()
+if "show_sidebar" not in st.session_state: st.session_state.show_sidebar = False
+if "mode" not in st.session_state: st.session_state.mode = "idle"
 
-def hapus_chat(chat_id):
-    if len(st.session_state.chats) > 1:
-        del st.session_state.chats[chat_id]
-        st.session_state.active_chat_id = list(st.session_state.chats.keys())[-1]
-    else:
-        buat_chat_baru()
+# ==================== UI SIDEBAR CUSTOM ====================
+if st.button("☰ Menu & Fitur", use_container_width=True):
+    st.session_state.show_sidebar = not st.session_state.show_sidebar
+    st.rerun()
 
-if "chats" not in st.session_state:
-    st.session_state.chats = {}
-    buat_chat_baru()
-
-if "active_chat_id" not in st.session_state:
-    st.session_state.active_chat_id = list(st.session_state.chats.keys())[0]
-
-if "mode" not in st.session_state:
-    st.session_state.mode = "idle"
-
-if "show_sidebar" not in st.session_state:
-    st.session_state.show_sidebar = False
-
-# ==================== KONSTANTA ====================
-STYLE_PROMPTS = {
-    "Realistic": "photorealistic, 8k, ultra detailed, professional photography, sharp focus, cinematic lighting",
-    "Anime": "anime style, studio ghibli, vibrant colors, detailed, key visual",
-    "3D Render": "3d render, octane render, pixar style, unreal engine 5, detailed",
-    "Fantasy Art": "fantasy art, epic, detailed, digital painting, artstation trending",
-    "Cyberpunk": "cyberpunk, neon lights, futuristic, blade runner style, 4k"
-}
-
-MODEL_CHAT = "llama-3.3-70b-versatile"
-MODEL_VISION = "meta-llama/llama-4-scout-17b-16e-instruct"
-MODEL_IMAGE = "stabilityai/stable-diffusion-3-medium-diffusers"
-
-# ==================== FUNGSI OTAK AI ====================
-def encode_image_to_base64(image):
-    buffered = io.BytesIO()
-    image.save(buffered, format="JPEG")
-    return base64.b64encode(buffered.getvalue()).decode()
-
-def chat_biasa(messages):
-    system_prompt = """Kamu adalah Fanilla AI, AI assistant yang friendly, pinter, dan agak playful.
-    Kamu ngomong pake bahasa Indonesia santai kayak ke temen. Jawaban lo harus helpful, to the point, tapi tetep asik.
-    Kalo user minta gambar tapi ga pake /gambar, arahin buat pake command /gambar.
-    Kalo ga tau, bilang ga tau."""
-    history = [{"role": "system", "content": system_prompt}]
-    for m in messages:
-        if m.get("type") == "text":
-            history.append({"role": m["role"], "content": m["content"]})
-        elif m.get("type") == "user_image":
-            history.append({"role": "user", "content": f"[User pernah upload gambar: {m.get('prompt', '')}]"})
-    stream = groq_client.chat.completions.create(model=MODEL_CHAT, messages=history, stream=True)
-    return stream
-
-def chat_vision(image, prompt):
-    system_prompt = """Kamu adalah Fanilla AI dengan kemampuan vision. Jawab pertanyaan tentang gambar dengan detail, santai, dan helpful.
-    Kalo ditanya harga barang dari foto, kasih estimasi harga pasaran + disclaimer kalo itu cuma perkiraan."""
-    base64_image = encode_image_to_base64(image)
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-        ]}
-    ]
-    stream = groq_client.chat.completions.create(model=MODEL_VISION, messages=messages, stream=True)
-    return stream
-
-def generate_image(prompt, style="Realistic"):
-    if not st.secrets.get("HF_TOKEN"):
-        return "Error: HF_TOKEN belum diset di Secrets bro."
-    try:
-        style_text = STYLE_PROMPTS.get(style, STYLE_PROMPTS["Realistic"])
-        enhanced_prompt = f"{prompt}, {style_text}"
-        negative_prompt = "multiple, duplicate, blurry, low quality, distorted, deformed, ugly, bad anatomy, watermark, text, signature, worst quality, jpeg artifacts, cropped, out of frame"
-        image = hf_client.text_to_image(enhanced_prompt, model=MODEL_IMAGE, negative_prompt=negative_prompt)
-        return image
-    except Exception as e:
-        return f"Gagal bikin gambar bro: {str(e)}. Server lagi rame, coba lagi 30 detik."
-
-# ==================== TOMBOL BUKA/TUTUP SIDEBAR CUSTOM ====================
-col1, col2 = st.columns([0.3, 0.7])
-with col1:
-    if st.button("☰ Obrolan", use_container_width=True, key="toggle_sidebar"):
-        st.session_state.show_sidebar = not st.session_state.show_sidebar
-        st.rerun()
-
-# ==================== SIDEBAR CUSTOM - MUNCUL KALO DIKLIK ====================
 if st.session_state.show_sidebar:
     with st.container():
         st.markdown('<div class="custom-sidebar">', unsafe_allow_html=True)
-
         if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
-            buat_chat_baru()
-            st.rerun()
+            buat_chat_baru(); st.rerun()
+
+        st.markdown("**Template Cepat:**")
+        if st.button("📄 Rangkum PDF", use_container_width=True):
+            st.session_state.mode = "upload_pdf"; st.rerun()
+        if st.button("🌐 Search Internet", use_container_width=True):
+            st.session_state.mode = "search"; st.rerun()
 
         st.markdown("**List Obrolan:**")
         sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
-
         for chat_id, chat_data in sorted_chats:
             c1, c2 = st.columns([0.85, 0.15])
             with c1:
-                if st.button(
-                    f"💬 {chat_data['title']}",
-                    key=f"chat_{chat_id}",
-                    use_container_width=True,
-                    type="primary" if chat_id == st.session_state.active_chat_id else "secondary"
-                ):
-                    st.session_state.active_chat_id = chat_id
-                    st.session_state.mode = "idle"
-                    st.session_state.show_sidebar = False
-                    st.rerun()
+                if st.button(f"💬 {chat_data['title']}", key=f"chat_{chat_id}", use_container_width=True):
+                    st.session_state.active_chat_id = chat_id; st.session_state.show_sidebar = False; st.rerun()
             with c2:
                 if st.button("🗑️", key=f"del_{chat_id}"):
-                    hapus_chat(chat_id)
+                    if len(st.session_state.chats) > 1: del st.session_state.chats[chat_id]
                     st.rerun()
-
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ==================== AMBIL CHAT AKTIF ====================
+# ==================== LOGIKA UTAMA ====================
 active_chat = st.session_state.chats[st.session_state.active_chat_id]
 messages = active_chat["messages"]
 
-# ==================== TAMPILAN UTAMA ====================
-st.markdown('<p class="fanilla-title">✨ Fanilla AI</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="fanilla-caption">{active_chat["title"]}</p>', unsafe_allow_html=True)
+st.markdown('<p class="fanilla-title">✨ Fanilla AI Ultimate</p>', unsafe_allow_html=True)
 
+# Render chat
 for msg in messages:
-    avatar = "✨" if msg["role"] == "assistant" else "🧑‍💻"
-    with st.chat_message(msg["role"], avatar=avatar):
-        if msg.get("type") == "image_generated":
-            st.image(msg["content"], caption=msg.get("caption", ""))
-            st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
+    with st.chat_message(msg["role"]):
+        if msg.get("type") == "audio":
+            st.audio(msg["content"])
         elif msg.get("type") == "user_image":
-            st.image(msg["content"], caption=msg.get("prompt", "Gambar yang diupload"))
+            st.image(msg["content"], caption=msg.get("prompt"))
         else:
             st.markdown(msg["content"])
 
-# ==================== LOGIKA MODE ====================
-if st.session_state.mode == "generating_image":
-    with st.chat_message("assistant", avatar="✨"):
-        with st.spinner(f"Fanilla lagi ngelukis style {st.session_state.selected_style}... 🎨"):
-            result = generate_image(st.session_state.image_prompt, st.session_state.selected_style)
-            if isinstance(result, str):
-                st.error(result)
-                messages.append({"role": "assistant", "content": result, "type": "text"})
-            else:
-                caption = f"Prompt: {st.session_state.image_prompt} | Style: {st.session_state.selected_style}"
-                st.image(result, caption=caption)
-                st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
-                messages.append({"role": "assistant", "content": result, "type": "image_generated", "caption": caption})
-    st.session_state.mode = "idle"
-    ganti_judul_otomatis(st.session_state.active_chat_id)
-    st.rerun()
-
-if st.session_state.mode == "style_select":
-    with st.chat_message("assistant", avatar="✨"):
-        st.markdown("Pilih style gambarnya bro:")
-        cols = st.columns(len(STYLE_PROMPTS))
-        for i, style_name in enumerate(STYLE_PROMPTS.keys()):
-            if cols[i].button(style_name, key=f"style_{style_name}", use_container_width=True):
-                st.session_state.selected_style = style_name
-                st.session_state.mode = "generating_image"
-                st.rerun()
-
-if st.session_state.mode == "idle":
-    prompt = st.chat_input("Ketik pesan, /gambar, atau upload foto...", accept_file=True, file_type=["jpg", "jpeg", "png"])
-    if prompt:
-        if prompt.get("files"):
-            uploaded_file = prompt["files"][0]
-            image = Image.open(uploaded_file)
-            user_text = prompt.get("text", "Jelaskan gambar ini dong")
-            messages.append({"role": "user", "content": image, "type": "user_image", "prompt": user_text})
-            with st.chat_message("user", avatar="🧑‍💻"):
-                st.image(image, caption=user_text)
-            with st.chat_message("assistant", avatar="✨"):
-                placeholder = st.empty()
-                full_response = ""
-                try:
-                    with st.spinner("Fanilla lagi ngeliat gambarnya... 👁️"):
-                        stream = chat_vision(image, user_text)
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content:
-                                full_response += chunk.choices[0].delta.content
-                                placeholder.markdown(full_response + "▌")
-                        placeholder.markdown(full_response)
-                except Exception as e:
-                    full_response = f"Waduh error bro: {e}"
-                    placeholder.markdown(full_response)
-                messages.append({"role": "assistant", "content": full_response, "type": "text"})
-            ganti_judul_otomatis(st.session_state.active_chat_id)
+# Handle mode khusus
+if st.session_state.mode == "upload_pdf":
+    pdf_file = st.file_uploader("Upload PDF buat dirangkum", type="pdf")
+    if pdf_file:
+        with st.spinner("Baca PDF..."):
+            text = baca_pdf(pdf_file)
+            prompt = f"Tolong rangkum dokumen ini dengan bahasa santai:\n\n{text}"
+            messages.append({"role": "user", "content": f"[Upload PDF: {pdf_file.name}]", "type": "text"})
+            # Kirim ke AI
+            stream = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], stream=True)
+            response = st.write_stream(stream)
+            messages.append({"role": "assistant", "content": response, "type": "text"})
+            st.session_state.mode = "idle"
             st.rerun()
-        elif prompt.get("text"):
-            user_text = prompt["text"]
-            messages.append({"role": "user", "content": user_text, "type": "text"})
-            with st.chat_message("user", avatar="🧑‍💻"):
-                st.markdown(user_text)
-            if user_text.startswith("/gambar "):
-                st.session_state.image_prompt = user_text.replace("/gambar ", "")
-                st.session_state.mode = "style_select"
-                st.rerun()
-            else:
-                with st.chat_message("assistant", avatar="✨"):
-                    placeholder = st.empty()
-                    full_response = ""
-                    try:
-                        stream = chat_biasa(messages)
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content:
-                                full_response += chunk.choices[0].delta.content
-                                placeholder.markdown(full_response + "▌")
-                        placeholder.markdown(full_response)
-                    except Exception as e:
-                        full_response = f"Waduh error bro: {e}"
-                        placeholder.markdown(full_response)
-                    messages.append({"role": "assistant", "content": full_response, "type": "text"})
-                ganti_judul_otomatis(st.session_state.active_chat_id)
-                st.rerun()
+
+elif st.session_state.mode == "search":
+    query = st.text_input("Mau cari apa di internet?")
+    if query:
+        with st.spinner("Searching..."):
+            hasil_search = search_internet(query)
+            prompt = f"Jawab pertanyaan user: '{query}' berdasarkan hasil search ini:\n{hasil_search}\n\nJawab pake bahasa santai + kasih sumbernya."
+            messages.append({"role": "user", "content": f"[Search: {query}]", "type": "text"})
+            stream = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], stream=True)
+            response = st.write_stream(stream)
+            messages.append({"role": "assistant", "content": response, "type": "text"})
+            st.session_state.mode = "idle"
+            st.rerun()
+
+# Chat input utama
+col1, col2 = st.columns([0.9, 0.1])
+with col1:
+    prompt = st.chat_input("Ketik pesan / upload gambar...", accept_file=True, file_type=["jpg", "png"])
+with col2:
+    audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='recorder')
+
+if audio: # FITUR VOICE INPUT
+    text = voice_to_text(audio['bytes'])
+    if text: prompt = {"text": text}
+
+if prompt:
+    # Logic chat biasa + vision + /gambar kayak V7.2, tambahin aja
+    user_text = prompt.get("text", "")
+    messages.append({"role": "user", "content": user_text, "type": "text"})
+    with st.chat_message("user"): st.markdown(user_text)
+
+    with st.chat_message("assistant"):
+        stream = groq_client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "m", "content": m["content"]} for m in messages if m["type"]=="text"], stream=True)
+        response = st.write_stream(stream)
+        messages.append({"role": "assistant", "content": response, "type": "text"})
+        # FITUR VOICE OUTPUT
+        audio_fp = text_to_speech(response[:500]) # Limit 500 karakter biar ga lama
+        if audio_fp:
+            st.audio(audio_fp)
+            messages.append({"role": "assistant", "content": audio_fp, "type": "audio"})
+    st.rerun()
