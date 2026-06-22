@@ -4,8 +4,11 @@ huggingface_hub
 Pillow
 PyMuPDF
 duckduckgo-search
+googlesearch-python
 edge-tts
 streamlit-mic-recorder
 SpeechRecognition
 pydub
 pytz
+beautifulsoup4
+requests
