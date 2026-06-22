@@ -109,35 +109,52 @@ def generate_image(prompt, style="Realistic"):
         )
         return image
     except Exception as e:
-        return f"Gagal bikin gambar bro: {str(e)}. Server Hugging Face lagi rame, coba lagi 30 detik."
-
+ m 
+     return f"Gagal bikin gambar bro: {str(e)}. Server Hugging Face lagi rame, coba lagi 30 detik."
 def generate_chat_response():
     system_prompt = """Kamu adalah Fanilla AI, AI assistant yang friendly, pinter, dan agak playful.
     Kamu ngomong pake bahasa Indonesia santai kayak ke temen.
     Kamu bisa melihat gambar yang diupload user. Jawab pertanyaan tentang gambar dengan detail.
+    Kalo user nanya harga barang dari foto, kasih estimasi harga pasaran + disclaimer kalo itu cuma perkiraan.
     Kalo user minta gambar tapi ga pake /gambar, arahin buat pake command /gambar terus pilih style.
     Kalo ga tau, bilang ga tau."""
 
-    # --- UPGRADE: SUPPORT GAMBAR DI HISTORY ---
     messages_for_api = [{"role": "system", "content": system_prompt}]
-
+    
+    # CEK APAKAH PERTANYAAN TERAKHIR ADA GAMBAR
+    last_user_msg = None
+    for m in reversed(st.session_state.messages):
+        if m["role"] == "user":
+            last_user_msg = m
+            break
+    
+    has_image_now = last_user_msg and last_user_msg.get("type") == "user_image"
+    
+    # --- FIX UTAMA: BIKIN 2 VERSI HISTORY ---
     for m in st.session_state.messages:
         if m.get("type") == "text":
             messages_for_api.append({"role": m["role"], "content": m["content"]})
         elif m.get("type") == "user_image":
-            # Kirim gambar ke Llama Vision
-            base64_image = encode_image_to_base64(m["content"])
-            messages_for_api.append({
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": m.get("prompt", "Jelaskan gambar ini")},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                ]
-            })
+            if has_image_now:
+                # Kalo mode vision, masukin gambarnya
+                base64_image = encode_image_to_base64(m["content"])
+                messages_for_api.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": m.get("prompt", "Jelaskan gambar ini")},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                    ]
+                })
+            else:
+                # Kalo mode text biasa, ganti gambar jadi teks doang biar ga error
+                messages_for_api.append({
+                    "role": "user", 
+                    "content": f"[User upload gambar] {m.get('prompt', '')}"
+                })
 
-    # PAKE MODEL VISION KALO ADA GAMBAR, KALO GA ADA PAKE CHAT BIASA
-    has_image = any(m.get("type") == "user_image" for m in st.session_state.messages[-3:])
-    model = "meta-llama/llama-4-scout-17b-16e-instruct" if has_image else "llama-3.3-70b-versatile"
+    # PAKE LLAMA 4 SCOUT KALO ADA GAMBAR, KALO GA ADA PAKE 3.3 70B
+    model = "meta-llama/llama-4-scout-17b-16e-instruct" if has_image_now else "llama-3.3-70b-versatile"
+
     stream = groq_client.chat.completions.create(
         model=model,
         messages=messages_for_api,
