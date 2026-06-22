@@ -18,6 +18,7 @@ st.markdown("""<style>
 .stChatInput > div {background-color: #374151; border-radius: 24px;}
 .fanilla-title {background: linear-gradient(90deg, #A855F7, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.2rem; font-weight: 800; text-align: center;}
 .custom-sidebar {background-color: #111827; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;}
+.image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
 </style>""", unsafe_allow_html=True)
 
 # ==================== INIT CLIENTS + ERROR HANDLING ====================
@@ -28,18 +29,17 @@ except Exception as e:
     st.error(f"API Key error bro: {e}. Cek Secrets di Streamlit Cloud!")
     st.stop()
 
-# ==================== SESSION STATE - FIXED V8.3 ====================
+# ==================== SESSION STATE - FIXED ====================
 def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.3 nih. Udah fix bug. Bisa baca PDF, search internet, ngomong, bikin gambar. Coba klik '☰ Menu' di atas ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.4 nih. Udah fix semua bug. Bisa baca PDF, search internet, ngomong, bikin gambar. Klik '☰ Menu' di atas ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
     st.session_state.show_sidebar = False
 
-# FIX: Inisialisasi dulu sebelum panggil fungsi
 if "chats" not in st.session_state:
     st.session_state.chats = {}
     buat_chat_baru()
@@ -51,7 +51,7 @@ if "show_sidebar" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "idle"
 
-# ==================== SEMUA FUNGSI FITUR - ANTI ERROR ====================
+# ==================== SEMUA FUNGSI FITUR ====================
 def baca_pdf(file):
     try:
         doc = fitz.open(stream=file.read(), filetype="pdf")
@@ -85,12 +85,13 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
+    """Stream manual biar ga error ChatCompletionChunk"""
     try:
         history = [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
-        stream = groq_client.chat.completions.create(model=model, messages=history, stream=True)
-        return stream
+        return groq_client.chat.completions.create(model=model, messages=history, stream=True)
     except Exception as e:
-        return f"Error AI: {e}"
+        st.error(f"Error AI: {e}")
+        return None
 
 def chat_vision(image, prompt):
     try:
@@ -104,15 +105,15 @@ def chat_vision(image, prompt):
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
             ]
         }]
-        stream = groq_client.chat.completions.create(model="meta-llama/llama-4-scout-17b-16e-instruct", messages=messages, stream=True)
-        return stream
+        return groq_client.chat.completions.create(model="meta-llama/llama-4-scout-17b-16e-instruct", messages=messages, stream=True)
     except Exception as e:
-        return f"Error Vision: {e}"
+        st.error(f"Error Vision: {e}")
+        return None
 
 def generate_image(prompt):
     if not st.secrets.get("HF_TOKEN"): return "HF_TOKEN belum diset bro"
     try:
-        style = "photorealistic, 8k, ultra detailed, cinematic"
+        style = "photorealistic, 8k, ultra detailed, cinematic lighting"
         image = hf_client.text_to_image(f"{prompt}, {style}", model="stabilityai/stable-diffusion-3-medium-diffusers")
         return image
     except Exception as e:
@@ -175,8 +176,16 @@ if st.session_state.mode == "pdf":
             text = baca_pdf(pdf_file)
             prompt = f"Rangkum dokumen ini dengan bahasa santai:\n\n{text}"
             messages.append({"role": "user", "content": f"[Upload PDF: {pdf_file.name}]", "type": "text"})
-            response = st.write_stream(chat_ai([{"role": "user", "content": prompt}]))
-            messages.append({"role": "assistant", "content": response, "type": "text"})
+            with st.chat_message("assistant"):
+                placeholder = st.empty(); full_response = ""
+                stream = chat_ai([{"role": "user", "content": prompt}])
+                if stream:
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_response += chunk.choices[0].delta.content
+                            placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    messages.append({"role": "assistant", "content": full_response, "type": "text"})
             st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
 
 elif st.session_state.mode == "search":
@@ -186,8 +195,16 @@ elif st.session_state.mode == "search":
             hasil = search_internet(query)
             prompt = f"Jawab '{query}' berdasarkan info ini:\n{hasil}\nJawab santai + kasih sumber"
             messages.append({"role": "user", "content": f"[Search: {query}]", "type": "text"})
-            response = st.write_stream(chat_ai([{"role": "user", "content": prompt}]))
-            messages.append({"role": "assistant", "content": response, "type": "text"})
+            with st.chat_message("assistant"):
+                placeholder = st.empty(); full_response = ""
+                stream = chat_ai([{"role": "user", "content": prompt}])
+                if stream:
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_response += chunk.choices[0].delta.content
+                            placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    messages.append({"role": "assistant", "content": full_response, "type": "text"})
             st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
 
 elif st.session_state.mode == "gambar":
@@ -198,6 +215,7 @@ elif st.session_state.mode == "gambar":
             if isinstance(result, str): st.error(result)
             else:
                 st.image(result, caption=prompt_gambar)
+                st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
                 messages.append({"role": "assistant", "content": result, "type": "image", "caption": prompt_gambar})
             st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
 
@@ -208,33 +226,44 @@ with col1:
 with col2:
     audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='recorder')
 
-if audio: # VOICE INPUT
+if audio:
     text = voice_to_text(audio['bytes'])
     if text: prompt = {"text": text}
 
 if prompt:
-    # Handle upload gambar
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
         user_text = prompt.get("text", "Jelaskan gambar ini")
         messages.append({"role": "user", "content": image, "type": "image", "caption": user_text})
         with st.chat_message("user"): st.image(image, caption=user_text)
         with st.chat_message("assistant"):
-            response = st.write_stream(chat_vision(image, user_text))
-            messages.append({"role": "assistant", "content": response, "type": "text"})
+            placeholder = st.empty(); full_response = ""
+            stream = chat_vision(image, user_text)
+            if stream:
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        full_response += chunk.choices[0].delta.content
+                        placeholder.markdown(full_response + "▌")
+                placeholder.markdown(full_response)
+                messages.append({"role": "assistant", "content": full_response, "type": "text"})
 
-    # Handle text
     elif prompt.get("text"):
         user_text = prompt["text"]
         messages.append({"role": "user", "content": user_text, "type": "text"})
         with st.chat_message("user"): st.markdown(user_text)
 
         with st.chat_message("assistant"):
-            response = st.write_stream(chat_ai(messages))
-            messages.append({"role": "assistant", "content": response, "type": "text"})
-            # VOICE OUTPUT
-            audio_fp = text_to_speech(response[:400])
-            if audio_fp: st.audio(audio_fp)
+            placeholder = st.empty(); full_response = ""
+            stream = chat_ai(messages)
+            if stream:
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        full_response += chunk.choices[0].delta.content
+                        placeholder.markdown(full_response + "▌")
+                placeholder.markdown(full_response)
+                messages.append({"role": "assistant", "content": full_response, "type": "text"})
+                audio_fp = text_to_speech(full_response[:400])
+                if audio_fp: st.audio(audio_fp)
 
     ganti_judul_otomatis(st.session_state.active_chat_id)
     st.rerun()
