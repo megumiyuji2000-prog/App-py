@@ -1,6 +1,6 @@
 streamlit
 groq
-huggingface_hub
+openai
 Pillow
 duckduckgo-search
 requests
