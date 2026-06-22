@@ -1,7 +1,7 @@
 import streamlit as st
-from openai import OpenAI
+import google.generativeai as genai
 from PIL import Image
-import time, base64, io
+import time, io
 from datetime import datetime
 import pytz
 from duckduckgo_search import DDGS
@@ -29,14 +29,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== INIT ====================
+# ==================== INIT GEMINI ====================
 try:
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=st.secrets["OPENROUTER_API_KEY"],
-    )
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-1.5-flash') # STABIL + CEPAT + 1500 REQ/HARI
 except Exception as e:
-    st.error(f"API Key Error: {e}. Cek Secrets OPENROUTER_API_KEY")
+    st.error(f"GEMINI_API_KEY Error: {e}. Cek Secrets")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -45,19 +43,8 @@ if "processing" not in st.session_state:
     st.session_state.processing = False
 if "user_style" not in st.session_state:
     st.session_state.user_style = "santai"
-
-# ==================== MODEL LIST STABIL ====================
-CHAT_MODELS = [
-    "meta-llama/llama-3.1-70b-instruct:free", # PALING STABIL
-    "mistralai/mistral-7b-instruct:free", # BACKUP RINGAN
-    "google/gemma-2-9b-it:free" # BACKUP DARURAT
-]
-
-VISION_MODELS = [
-    "qwen/qwen-2-vl-72b-instruct:free", # PALING STABIL VISION
-    "meta-llama/llama-3.2-11b-vision-instruct:free", # BACKUP VISION
-    "google/gemma-3-27b-it:free" # BACKUP DARURAT
-]
+if "chat" not in st.session_state:
+    st.session_state.chat = model.start_chat(history=[])
 
 # ==================== CORE ====================
 def detect_user_style(text):
@@ -84,29 +71,28 @@ def search_web(query):
         return "Search error."
     return "Tidak ada hasil."
 
-def ai_stream(messages, is_vision=False, image_b64=None):
-    """V13.0 STABLE MODE - LLAMA 3.1 + QWEN 2 VL"""
+def ai_stream_gemini(prompt_text, image=None):
+    """V14.0 GEMINI MODE - 1500 REQ/HARI"""
 
-    user_msg = messages[-1]["content"]
-    st.session_state.user_style = detect_user_style(user_msg)
+    st.session_state.user_style = detect_user_style(prompt_text)
 
     # AUTO SEARCH BUAT FAKTA
-    user_lower = user_msg.lower()
+    user_lower = prompt_text.lower()
     need_search = any(word in user_lower for word in [
         "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
         "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
         "pasir hisap", "siapa", "kapan", "dimana", "sejarah", "tinggi"
     ])
 
-    if not is_vision and need_search:
+    if need_search and not image:
         with st.spinner("🔍 Cek fakta..."):
-            search_result = search_web(user_msg)
-            user_msg += f"\n\n[FAKTA DARI WEB]:\n{search_result}"
+            search_result = search_web(prompt_text)
+            prompt_text += f"\n\n[FAKTA DARI WEB]:\n{search_result}"
 
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    # SYSTEM PROMPT V13.0
+    # SYSTEM PROMPT V14.0
     if st.session_state.user_style == "santai":
         system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
 ATURAN:
@@ -114,7 +100,8 @@ ATURAN:
 2. Pake data [FAKTA DARI WEB] kalo ada.
 3. Gaya santai: 'bro', 'lu', 'gw'. Max 3 kalimat.
 4. Logo: kasih rating 1-10 + alasan singkat.
-5. Pasir hisap: campuran pasir jenuh air. Densitas 2 g/cm³, manusia 1 g/cm³ jadi ngambang."""
+5. Pasir hisap: campuran pasir jenuh air. Densitas 2 g/cm³, manusia 1 g/cm³ jadi ngambang.
+6. Jangan ngarang. Kalo ga tau bilang ga tau."""
     else:
         system_prompt = f"""Anda adalah Fanilla AI dari FNL. Tanggal {date_now}.
 ATURAN:
@@ -122,73 +109,32 @@ ATURAN:
 2. Gunakan data [FAKTA DARI WEB] jika ada.
 3. Bahasa formal. Maksimal 3 kalimat.
 4. Logo: berikan rating 1-10 + alasan.
-5. Pasir hisap: campuran pasir jenuh air. Densitas ~2 g/cm³, manusia ~1 g/cm³ sehingga mengapung."""
+5. Pasir hisap: campuran pasir jenuh air. Densitas ~2 g/cm³, manusia ~1 g/cm³ sehingga mengapung.
+6. Jangan mengarang. Jika tidak tahu, sampaikan."""
 
-    # PILIH MODEL STABIL
-    models = VISION_MODELS if is_vision else CHAT_MODELS
+    full_prompt = f"{system_prompt}\n\nUser: {prompt_text}"
 
-    if is_vision:
-        content = [
-            {"type": "text", "text": f"{system_prompt}\n\nUser tanya: {user_msg}"},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
-        ]
-        msg = [{"role": "user", "content": content}]
-    else:
-        chat_history = [{"role": "system", "content": system_prompt}]
-        for m in messages:
-            if m["type"] == "text":
-                chat_history.append({"role": m["role"], "content": m["content"]})
-        msg = chat_history
+    try:
+        st.toast("Pake Gemini 1.5 Flash...", icon="✨")
 
-    # COBA MODEL STABIL
-    for model in models:
-        try:
-            model_name = model.split('/')[1].split(':')[0]
-            st.toast(f"Pake {model_name[:15]}...", icon="✅")
-
-            stream = client.chat.completions.create(
-                model=model,
-                messages=msg,
-                stream=True,
-                timeout=20,
-                max_tokens=400,
-                temperature=0.2,
-                top_p=0.9,
-                extra_headers={
-                    "HTTP-Referer": "https://fanilla.streamlit.app",
-                    "X-Title": "Fanilla AI",
-                }
-            )
-
-            full = ""
-            start = time.time()
-            for chunk in stream:
-                if time.time() - start > 20:
-                    break
-                if chunk.choices[0].delta.content:
-                    full += chunk.choices[0].delta.content
-                    yield full
-            return
-
-        except Exception as e:
-            error = str(e)
-            if "429" in error or "rate" in error.lower():
-                st.toast(f"{model_name[:10]} limit, ganti...", icon="⚠️")
-                continue
-            else:
-                continue
-
-    # FALLBACK ADAPTIF V13.0
-    if is_vision:
-        if st.session_state.user_style == "santai":
-            yield "Server vision lagi error bro 😭 Semua model down. Tapi logo FNL lo tetep keren: 9.5/10. 3 garis biru-putih-merah = growth. FNL Future Network Legacy 🔥"
+        # GEMINI HANDLE IMAGE + TEXT SEKALIGUS
+        if image:
+            response = st.session_state.chat.send_message([full_prompt, image], stream=True)
         else:
-            yield "Mohon maaf, server vision sedang gangguan. Namun logo FNL Anda sangat baik. Rating 9.5/10. Tiga garis melambangkan pertumbuhan."
-    else:
-        if st.session_state.user_style == "santai":
-            yield "Server lagi error bro. Coba tanya lagi 1 menit ya."
+            response = st.session_state.chat.send_message(full_prompt, stream=True)
+
+        full = ""
+        for chunk in response:
+            if chunk.text:
+                full += chunk.text
+                yield full
+
+    except Exception as e:
+        error = str(e)
+        if "429" in error or "quota" in error.lower():
+            yield "Limit Gemini 1500/hari abis bro 😭 Besok reset jam 7 pagi. Topup kalo mau unlimited."
         else:
-            yield "Mohon maaf, server sedang bermasalah. Silakan coba beberapa saat lagi."
+            yield f"Error Gemini bro: {error}"
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -197,17 +143,18 @@ with st.sidebar:
     if st.button("🗑️ Hapus Chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.user_style = "santai"
+        st.session_state.chat = model.start_chat(history=[])
         st.rerun()
     st.markdown("---")
-    st.caption("Vision: Qwen 2 VL 72B")
-    st.caption("Chat: Llama 3.1 70B")
-    st.caption("Mode: Stable V13.0")
+    st.caption("Model: Gemini 1.5 Flash")
+    st.caption("Limit: 1500 req/hari")
+    st.caption("Mode: Stable V14.0")
     st.caption("Fanilla AI © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Powered by Llama 3.1 + Qwen 2 VL. Paling stabil gratisan.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Powered by Google Gemini. Limit 1500 req/hari.</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -245,12 +192,7 @@ if prompt and not st.session_state.processing:
             placeholder = st.empty()
             full_response = ""
             try:
-                image.thumbnail((1024, 1024))
-                buffered = io.BytesIO()
-                image.save(buffered, format="JPEG", quality=90)
-                base64_image = base64.b64encode(buffered.getvalue()).decode()
-
-                for chunk in ai_stream([{"role": "user", "content": user_text, "type": "text"}], is_vision=True, image_b64=base64_image):
+                for chunk in ai_stream_gemini(user_text, image=image):
                     full_response = chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
@@ -271,7 +213,7 @@ if prompt and not st.session_state.processing:
             placeholder = st.empty()
             full_response = ""
             try:
-                for chunk in ai_stream(st.session_state.messages):
+                for chunk in ai_stream_gemini(user_text):
                     full_response = chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
