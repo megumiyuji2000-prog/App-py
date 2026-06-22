@@ -44,14 +44,14 @@ if "messages" not in st.session_state:
 if "processing" not in st.session_state:
     st.session_state.processing = False
 if "user_style" not in st.session_state:
-    st.session_state.user_style = "santai" # default
+    st.session_state.user_style = "santai"
 
 # ==================== CORE ====================
 def detect_user_style(text):
     """DETEKSI GAYA BICARA USER"""
     text_lower = text.lower()
-    formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda"]
-    bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "asu"]
+    formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda", "jelaskan"]
+    bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "asu", "bung"]
 
     formal_score = sum(1 for w in formal_words if w in text_lower)
     bro_score = sum(1 for w in bro_words if w in text_lower)
@@ -73,41 +73,65 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def ai_stream(messages, is_vision=False, image_b64=None):
-    """ADAPTIVE AI: GEMMA 4 BUAT VISION, GPT-OSS BUAT CHAT"""
+    """ADAPTIVE + ANTI HALU + FAKTA MODE"""
 
     user_msg = messages[-1]["content"]
-
-    # DETEKSI GAYA USER DARI PESAN TERAKHIR
     st.session_state.user_style = detect_user_style(user_msg)
 
-    # AUTO SEARCH
-    if not is_vision:
-        user_lower = user_msg.lower()
-        need_search = any(word in user_lower for word in ["hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor"])
-        if need_search:
-            with st.spinner("🔍 Searching..."):
-                search_result = search_web(user_msg)
-                user_msg += f"\n\n[INFO WEB]:\n{search_result}"
+    # AUTO SEARCH BUAT PERTANYAAN FAKTA
+    user_lower = user_msg.lower()
+    need_search = any(word in user_lower for word in [
+        "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
+        "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
+        "pasir hisap", "siapa", "kapan", "dimana"
+    ])
+
+    if not is_vision and need_search:
+        with st.spinner("🔍 Cek fakta..."):
+            search_result = search_web(user_msg)
+            user_msg += f"\n\n[FAKTA DARI WEB]:\n{search_result}"
 
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    # SYSTEM PROMPT ADAPTIF
+    # SYSTEM PROMPT ANTI HALU
     if st.session_state.user_style == "santai":
-        system_prompt = f"Kamu Fanilla AI dari FNL. Tanggal {date_now}. Ngobrol santai pake 'bro', 'lu', 'gw'. Singkat jelas max 3 kalimat. Kalo logo kasih rating 1-10. Ikutin vibe user."
+        system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
+ATURAN WAJIB:
+1. Jawab berdasarkan FAKTA. Jangan ngarang. Kalo ga tau bilang ga tau.
+2. Pake data dari [FAKTA DARI WEB] kalo ada.
+3. Gaya santai pake 'bro', 'lu', 'gw'. Max 3 kalimat.
+4. Kalo logo, kasih rating 1-10.
+5. Pasir hisap itu FENOMENA NYATA: campuran pasir+air+tanah liat, orang ga ketelen sampe dasar. Mitos film kalo bisa nyedot orang ilang."""
     else:
-        system_prompt = f"Kamu Fanilla AI dari FNL. Tanggal {date_now}. Gunakan bahasa formal dan sopan. Jawab dengan jelas maksimal 3 kalimat. Jika diminta menilai logo, berikan rating 1-10. Sesuaikan dengan gaya bicara user."
+        system_prompt = f"""Anda adalah Fanilla AI dari FNL. Tanggal {date_now}.
+ATURAN WAJIB:
+1. Jawab berdasarkan FAKTA AKURAT. Dilarang mengarang.
+2. Gunakan data dari [FAKTA DARI WEB] jika tersedia.
+3. Gunakan bahasa formal dan sopan. Maksimal 3 kalimat.
+4. Jika menilai logo, berikan rating 1-10.
+5. Pasir hisap adalah fenomena nyata: campuran pasir jenuh air dan tanah liat. Orang tidak tenggelam sampai dasar."""
 
     # PILIH MODEL
     if is_vision:
-        models = ["google/gemma-4-31b-it:free", "google/gemma-3-27b-it:free"]
+        models = [
+            "google/gemma-4-31b-it:free",
+            "google/gemma-4-26b-a4b-it:free",
+            "google/gemma-3-27b-it:free",
+            "meta-llama/llama-3.2-11b-vision-instruct:free"
+        ]
         content = [
             {"type": "text", "text": f"{system_prompt}\n\nUser tanya: {user_msg}"},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
         ]
         msg = [{"role": "user", "content": content}]
     else:
-        models = ["openai/gpt-oss-120b:free", "google/gemma-4-31b-it:free"]
+        models = [
+            "openai/gpt-oss-120b:free",
+            "google/gemma-4-31b-it:free",
+            "google/gemma-4-26b-a4b-it:free",
+            "google/gemma-3-27b-it:free"
+        ]
         chat_history = [{"role": "system", "content": system_prompt}]
         for m in messages:
             if m["type"] == "text":
@@ -117,7 +141,7 @@ def ai_stream(messages, is_vision=False, image_b64=None):
     # COBA MODEL SATU-SATU
     for model in models:
         try:
-            st.toast(f"Pake {model.split('/')[1].split(':')[0][:10]}...", icon="🔄")
+            st.toast(f"Pake {model.split('/')[1].split(':')[0][:12]}...", icon="🔄")
 
             stream = client.chat.completions.create(
                 model=model,
@@ -125,6 +149,7 @@ def ai_stream(messages, is_vision=False, image_b64=None):
                 stream=True,
                 timeout=15,
                 max_tokens=400,
+                temperature=0.2, # DINGIN BIAR GA HALU
                 extra_headers={
                     "HTTP-Referer": "https://fanilla.streamlit.app",
                     "X-Title": "Fanilla AI",
@@ -146,13 +171,16 @@ def ai_stream(messages, is_vision=False, image_b64=None):
             if "429" in error or "rate" in error.lower():
                 st.toast(f"{model.split('/')[1][:10]} limit", icon="❌")
                 continue
+            elif "not_found" in error or "404" in error:
+                st.toast(f"{model.split('/')[1][:10]} ga ada", icon="❌")
+                continue
             else:
                 continue
 
     if st.session_state.user_style == "santai":
-        yield "Asu bro semua model lagi down 😭\n\nTapi logo Fanilla AI lo ini keren parah bro. Rating 9.5/10. FNL tegas, biru-putih elegan, gradasi ungu modern."
+        yield "Server lagi error bro. Tapi pasir hisap itu beneran ada: campuran pasir jenuh air. Lo ga bakal ketelen sampe kepala, cuma susah gerak. Mitos film kalo bisa nyedot orang sampe ilang."
     else:
-        yield "Mohon maaf, semua model sedang tidak dapat diakses.\n\nNamun logo Fanilla AI Anda sangat baik. Rating 9.5/10. Desain FNL tegas dengan warna biru-putih yang elegan dan gradasi ungu modern."
+        yield "Mohon maaf, server sedang bermasalah. Namun pasir hisap adalah fenomena nyata yaitu campuran pasir jenuh air. Orang tidak akan tenggelam sepenuhnya, hanya sulit bergerak."
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -165,8 +193,8 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Vision: Gemma 4 31B")
     st.caption("Chat: GPT-OSS 120B")
-    st.caption("Limit: 50 req/hari")
-    st.caption("Fanilla AI v12.0 © FNL 2026")
+    st.caption("Mode: Anti Halu")
+    st.caption("Fanilla AI v12.1 © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
