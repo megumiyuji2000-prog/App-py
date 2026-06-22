@@ -8,3 +8,4 @@ edge-tts
 streamlit-mic-recorder
 SpeechRecognition
 pydub
+pytz
