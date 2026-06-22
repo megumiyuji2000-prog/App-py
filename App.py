@@ -73,7 +73,7 @@ def search_web(query):
     return "Tidak ada hasil."
 
 def ai_stream(messages, is_vision=False, image_b64=None):
-    """ADAPTIVE + ANTI HALU + FAKTA MODE"""
+    """ADAPTIVE + ANTI HALU + ANTI TYPO + FAKTA MODE"""
 
     user_msg = messages[-1]["content"]
     st.session_state.user_style = detect_user_style(user_msg)
@@ -83,7 +83,7 @@ def ai_stream(messages, is_vision=False, image_b64=None):
     need_search = any(word in user_lower for word in [
         "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
         "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
-        "pasir hisap", "siapa", "kapan", "dimana"
+        "pasir hisap", "siapa", "kapan", "dimana", "sejarah"
     ])
 
     if not is_vision and need_search:
@@ -94,23 +94,23 @@ def ai_stream(messages, is_vision=False, image_b64=None):
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    # SYSTEM PROMPT ANTI HALU
+    # SYSTEM PROMPT ANTI HALU V12.2
     if st.session_state.user_style == "santai":
         system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
 ATURAN WAJIB:
-1. Jawab berdasarkan FAKTA. Jangan ngarang. Kalo ga tau bilang ga tau.
+1. Jawab FAKTA SAINS. Cek ejaan, jangan typo "hishisap".
 2. Pake data dari [FAKTA DARI WEB] kalo ada.
-3. Gaya santai pake 'bro', 'lu', 'gw'. Max 3 kalimat.
-4. Kalo logo, kasih rating 1-10.
-5. Pasir hisap itu FENOMENA NYATA: campuran pasir+air+tanah liat, orang ga ketelen sampe dasar. Mitos film kalo bisa nyedot orang ilang."""
+3. Gaya santai pake 'bro'. Max 3 kalimat.
+4. FAKTA PASIR HISAP: Campuran pasir jenuh air. Densitas pasir hisap ~2 g/cm³, manusia ~1 g/cm³, jadi manusia NGAMBANG setengah badan. Benda berat tenggelam, benda ringan ngambang. Ga bikin lubang.
+5. Kalo logo, kasih rating 1-10."""
     else:
         system_prompt = f"""Anda adalah Fanilla AI dari FNL. Tanggal {date_now}.
 ATURAN WAJIB:
-1. Jawab berdasarkan FAKTA AKURAT. Dilarang mengarang.
+1. Jawab FAKTA SAINS AKURAT. Periksa ejaan dengan teliti.
 2. Gunakan data dari [FAKTA DARI WEB] jika tersedia.
-3. Gunakan bahasa formal dan sopan. Maksimal 3 kalimat.
-4. Jika menilai logo, berikan rating 1-10.
-5. Pasir hisap adalah fenomena nyata: campuran pasir jenuh air dan tanah liat. Orang tidak tenggelam sampai dasar."""
+3. Bahasa formal dan sopan. Maksimal 3 kalimat.
+4. FAKTA PASIR HISAP: Campuran pasir jenuh air dengan densitas ~2 g/cm³. Densitas manusia ~1 g/cm³ sehingga mengapung. Benda dengan densitas lebih tinggi akan tenggelam.
+5. Jika menilai logo, berikan rating 1-10."""
 
     # PILIH MODEL
     if is_vision:
@@ -149,7 +149,8 @@ ATURAN WAJIB:
                 stream=True,
                 timeout=15,
                 max_tokens=400,
-                temperature=0.2, # DINGIN BIAR GA HALU
+                temperature=0.2, # DINGIN BIAR GA HALU + GA TYPO
+                top_p=0.9,
                 extra_headers={
                     "HTTP-Referer": "https://fanilla.streamlit.app",
                     "X-Title": "Fanilla AI",
@@ -178,9 +179,9 @@ ATURAN WAJIB:
                 continue
 
     if st.session_state.user_style == "santai":
-        yield "Server lagi error bro. Tapi pasir hisap itu beneran ada: campuran pasir jenuh air. Lo ga bakal ketelen sampe kepala, cuma susah gerak. Mitos film kalo bisa nyedot orang sampe ilang."
+        yield "Server lagi error bro. Tapi pasir hisap itu beneran ada: campuran pasir jenuh air. Manusia ngambang setengah badan karena densitasnya lebih rendah. Ga bakal ketelen."
     else:
-        yield "Mohon maaf, server sedang bermasalah. Namun pasir hisap adalah fenomena nyata yaitu campuran pasir jenuh air. Orang tidak akan tenggelam sepenuhnya, hanya sulit bergerak."
+        yield "Mohon maaf, server sedang bermasalah. Namun pasir hisap adalah fenomena nyata yaitu campuran pasir jenuh air. Manusia mengapung karena densitasnya lebih rendah dari pasir hisap."
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -193,8 +194,8 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Vision: Gemma 4 31B")
     st.caption("Chat: GPT-OSS 120B")
-    st.caption("Mode: Anti Halu")
-    st.caption("Fanilla AI v12.1 © FNL 2026")
+    st.caption("Mode: Anti Halu V12.2")
+    st.caption("Fanilla AI © FNL 2026")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
