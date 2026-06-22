@@ -2,11 +2,11 @@ import streamlit as st
 from groq import Groq
 from huggingface_hub import InferenceClient
 from PIL import Image
-import time, base64, io, uuid
+import time, base64, io, uuid, asyncio
 from datetime import datetime
 import fitz # PyMuPDF
 from duckduckgo_search import DDGS
-from gtts import gTTS
+import edge_tts # <-- GANTI gTTS
 from streamlit_mic_recorder import mic_recorder
 import speech_recognition as sr
 
@@ -21,7 +21,7 @@ st.markdown("""<style>
 .image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
 </style>""", unsafe_allow_html=True)
 
-# ==================== INIT CLIENTS + ERROR HANDLING ====================
+# ==================== INIT CLIENTS ====================
 try:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     hf_client = InferenceClient(token=st.secrets.get("HF_TOKEN"))
@@ -29,12 +29,12 @@ except Exception as e:
     st.error(f"API Key error bro: {e}. Cek Secrets di Streamlit Cloud!")
     st.stop()
 
-# ==================== SESSION STATE - FIXED ====================
+# ==================== SESSION STATE ====================
 def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.4 nih. Udah fix semua bug. Bisa baca PDF, search internet, ngomong, bikin gambar. Klik '☰ Menu' di atas ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.6 nih pake Edge TTS. Suara lebih jernih. Coba chat 'halo' ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -51,7 +51,7 @@ if "show_sidebar" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "idle"
 
-# ==================== SEMUA FUNGSI FITUR ====================
+# ==================== FUNGSI FITUR ====================
 def baca_pdf(file):
     try:
         doc = fitz.open(stream=file.read(), filetype="pdf")
@@ -69,12 +69,27 @@ def search_internet(query):
     except Exception as e:
         return f"Search error: {e}"
 
+async def _edge_tts_async(text, voice="id-ID-ArdiNeural"):
+    """Async function buat edge-tts"""
+    communicate = edge_tts.Communicate(text, voice)
+    audio_data = b""
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data += chunk["data"]
+    return audio_data
+
 def text_to_speech(text):
+    """TTS V8.6 - Pake Edge TTS"""
     try:
-        tts = gTTS(text=text, lang='id', slow=False)
-        fp = io.BytesIO(); tts.write_to_fp(fp); fp.seek(0)
+        if not text or len(text.strip()) == 0: return None
+        # Jalankan async function
+        audio_data = asyncio.run(_edge_tts_async(text[:500])) # Limit 500 karakter
+        fp = io.BytesIO(audio_data)
+        fp.seek(0)
         return fp
-    except: return None
+    except Exception as e:
+        st.toast(f"TTS Error: {e}", icon="🔇")
+        return None
 
 def voice_to_text(audio_bytes):
     r = sr.Recognizer()
@@ -85,7 +100,6 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """Stream manual biar ga error ChatCompletionChunk"""
     try:
         history = [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
         return groq_client.chat.completions.create(model=model, messages=history, stream=True)
@@ -262,8 +276,12 @@ if prompt:
                         placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
                 messages.append({"role": "assistant", "content": full_response, "type": "text"})
-                audio_fp = text_to_speech(full_response[:400])
-                if audio_fp: st.audio(audio_fp)
+
+                # VOICE OUTPUT - EDGE TTS V8.6
+                with st.spinner("Bikin suara..."):
+                    audio_fp = text_to_speech(full_response)
+                    if audio_fp:
+                        st.audio(audio_fp, format="audio/mp3")
 
     ganti_judul_otomatis(st.session_state.active_chat_id)
     st.rerun()
