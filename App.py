@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 from huggingface_hub import InferenceClient
 from PIL import Image
-import time, base64, io, uuid, asyncio, os, signal
+import time, base64, io, uuid, asyncio
 from datetime import datetime
 import pytz
 import fitz
@@ -38,7 +38,7 @@ def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V9.0.4 Anti Stuck. Timeout 15 detik. Gas upload logo FNL ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V9.0.5 Anti Stuck. Upload logo FNL aja, video udah gw hapus biar ringan ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -59,12 +59,12 @@ if "processing" not in st.session_state:
 
 # ==================== FUNGSI ANTI STUCK ====================
 def stream_with_timeout(stream, timeout=15):
-    """V9.0.4 - Kalo 15 detik ga ada chunk, matiin paksa"""
+    """V9.0.5 - Timeout 15 detik keras"""
     start_time = time.time()
     full_response = ""
     for chunk in stream:
         if time.time() - start_time > timeout:
-            raise TimeoutError("Kelamaan bro, Groq ngambek >15 detik")
+            raise TimeoutError("Kelamaan bro >15 detik. Groq lemot")
         if chunk.choices[0].delta.content:
             full_response += chunk.choices[0].delta.content
             yield full_response
@@ -96,13 +96,12 @@ def chat_ai(messages, model="llama-3.3-70b-versatile"):
         return None
 
 def chat_vision(images, prompt):
-    """V9.0.4 - ANTI STUCK. Timeout 15 detik + Pake Model Ringan"""
+    """V9.0.5 - GAMBAR DOANG. Timeout 15 detik + Resize Otomatis"""
     try:
-        content_list = [{"type": "text", "text": f"Lo Fanilla AI. User upload logo FNL. Pertanyaan: {prompt}. Jawab 'bro', rating 1-10, filosofi F-N-L. Singkat 3 kalimat."}]
+        content_list = [{"type": "text", "text": f"Lo Fanilla AI dari FNL. User upload logo FNL. Pertanyaan: {prompt}. Jawab 'bro', rating 1-10, jelasin filosofi F-N-L. Max 3 kalimat."}]
 
-        # Pake 1 gambar aja + resize biar kecil
         image = images[0]
-        image.thumbnail((512, 512)) # KECILIN GAMBAR BIAR GA BERAT
+        image.thumbnail((512, 512)) # KECILIN PAKSA BIAR RINGAN
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG", quality=70)
         base64_image = base64.b64encode(buffered.getvalue()).decode()
@@ -116,12 +115,12 @@ def chat_vision(images, prompt):
             messages=messages,
             stream=True,
             timeout=15,
-            max_tokens=200 # BATASIN BIAR CEPET
+            max_tokens=150 # PENDEK AJA BIAR CEPET
         )
         return stream_with_timeout(stream, timeout=15)
 
     except TimeoutError as e:
-        st.error(f"TIMEOUT BRO: {e}. Groq lemot. Coba lagi atau upload gambar lebih kecil.")
+        st.error(f"TIMEOUT BRO: {e}. Coba lagi.")
         return None
     except Exception as e:
         error_msg = str(e)
@@ -160,6 +159,33 @@ def search_internet(query):
         pass
     return "Search error bro."
 
+async def _edge_tts_async(text, voice="id-ID-ArdiNeural"):
+    communicate = edge_tts.Communicate(text, voice)
+    audio_data = b""
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data += chunk["data"]
+    return audio_data
+
+def text_to_speech(text):
+    try:
+        if not text or len(text.strip()) == 0: return None
+        audio_data = asyncio.run(_edge_tts_async(text[:500]))
+        fp = io.BytesIO(audio_data)
+        fp.seek(0)
+        return fp
+    except Exception as e:
+        st.toast(f"TTS Error: {e}", icon="🔇")
+        return None
+
+def voice_to_text(audio_bytes):
+    r = sr.Recognizer()
+    try:
+        with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
+            audio = r.record(source)
+        return r.recognize_google(audio, language='id-ID')
+    except: return None
+
 def generate_image(prompt):
     if not st.secrets.get("HF_TOKEN"): return "HF_TOKEN belum diset bro"
     try:
@@ -188,6 +214,7 @@ if st.session_state.show_sidebar:
         if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
             buat_chat_baru(); st.rerun()
         st.markdown("**Fitur Cepat:**")
+        if st.button("📄 Rangkum PDF", use_container_width=True): st.session_state.mode = "pdf"; st.rerun()
         if st.button("🎨 Bikin Gambar", use_container_width=True): st.session_state.mode = "gambar"; st.rerun()
         st.markdown("**List Obrolan:**")
         sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
@@ -213,10 +240,28 @@ with col2:
 for msg in messages:
     with st.chat_message(msg["role"]):
         if msg.get("type") == "image": st.image(msg["content"], caption=msg.get("caption"))
+        elif msg.get("type") == "audio": st.audio(msg["content"])
         else: st.markdown(msg["content"])
 
-# ==================== MODE GAMBAR ====================
-if st.session_state.mode == "gambar":
+# ==================== MODE KHUSUS ====================
+if st.session_state.mode == "pdf":
+    pdf_file = st.file_uploader("Upload PDF", type="pdf")
+    if pdf_file:
+        with st.spinner("Baca PDF..."):
+            text = baca_pdf(pdf_file)
+            prompt = f"Rangkum dokumen ini:\n\n{text}"
+            messages.append({"role": "user", "content": f"[Upload PDF: {pdf_file.name}]", "type": "text"})
+            with st.chat_message("assistant"):
+                placeholder = st.empty(); full_response = ""
+                stream = chat_ai([{"role": "user", "content": prompt}])
+                if stream:
+                    for full_response in stream_with_timeout(stream, timeout=15):
+                        placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    messages.append({"role": "assistant", "content": full_response, "type": "text"})
+            st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
+
+elif st.session_state.mode == "gambar":
     prompt_gambar = st.text_input("Deskripsiin gambar:")
     if prompt_gambar:
         with st.spinner("Ngelukis..."):
@@ -227,13 +272,21 @@ if st.session_state.mode == "gambar":
                 messages.append({"role": "assistant", "content": result, "type": "image", "caption": prompt_gambar})
             st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
 
-# ==================== INPUT UTAMA - ANTI STUCK ====================
-prompt = st.chat_input("Ketik / upload gambar...", accept_file=True, file_type=["jpg", "png", "jpeg"], disabled=st.session_state.processing)
+# ==================== INPUT UTAMA - GAMBAR DOANG ====================
+col1, col2 = st.columns([0.9, 0.1])
+with col1:
+    prompt = st.chat_input("Ketik / upload gambar...", accept_file=True, file_type=["jpg", "png", "jpeg"], disabled=st.session_state.processing)
+with col2:
+    audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key='recorder')
+
+if audio:
+    text = voice_to_text(audio['bytes'])
+    if text: prompt = {"text": text}
 
 if prompt and not st.session_state.processing:
     st.session_state.processing = True
 
-    # HANDLE GAMBAR
+    # HANDLE GAMBAR - VIDEO UDAH DIHAPUS
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
         user_text = prompt.get("text", "Gimana logo ini?")
@@ -242,7 +295,7 @@ if prompt and not st.session_state.processing:
         with st.chat_message("assistant"):
             placeholder = st.empty()
             try:
-                with st.spinner("Mikirin logo 15 detik..."):
+                with st.spinner("Mikirin 15 detik max..."):
                     stream = chat_vision([image], user_text)
                     if stream:
                         for full_response in stream:
@@ -250,9 +303,9 @@ if prompt and not st.session_state.processing:
                         placeholder.markdown(full_response)
                         messages.append({"role": "assistant", "content": full_response, "type": "text"})
                     else:
-                        placeholder.error("Vision gagal bro. Cek error merah di atas.")
+                        placeholder.error("Vision gagal. Cek error merah di atas bro.")
             except Exception as e:
-                placeholder.error(f"Stuck kecegah: {e}")
+                placeholder.error(f"KECEGAT: {e}")
 
     # HANDLE TEKS
     elif prompt.get("text"):
@@ -269,8 +322,11 @@ if prompt and not st.session_state.processing:
                             placeholder.markdown(full_response + "▌")
                         placeholder.markdown(full_response)
                         messages.append({"role": "assistant", "content": full_response, "type": "text"})
+                        with st.spinner("Bikin suara..."):
+                            audio_fp = text_to_speech(full_response)
+                            if audio_fp: st.audio(audio_fp, format="audio/mp3")
             except Exception as e:
-                placeholder.error(f"Stuck kecegah: {e}")
+                placeholder.error(f"KECEGAT: {e}")
 
     ganti_judul_otomatis(st.session_state.active_chat_id)
     st.session_state.processing = False
