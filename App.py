@@ -28,21 +28,28 @@ except Exception as e:
     st.error(f"API Key error bro: {e}. Cek Secrets di Streamlit Cloud!")
     st.stop()
 
-# ==================== SESSION STATE ====================
+# ==================== SESSION STATE - FIXED V8.3 ====================
 def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.2 nih. Bisa baca PDF, search internet, ngomong, bikin gambar. Coba klik '☰ Menu' di atas ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.3 nih. Udah fix bug. Bisa baca PDF, search internet, ngomong, bikin gambar. Coba klik '☰ Menu' di atas ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
     st.session_state.show_sidebar = False
 
-if "chats" not in st.session_state: buat_chat_baru()
-if "active_chat_id" not in st.session_state: st.session_state.active_chat_id = list(st.session_state.chats.keys())[0]
-if "show_sidebar" not in st.session_state: st.session_state.show_sidebar = False
-if "mode" not in st.session_state: st.session_state.mode = "idle"
+# FIX: Inisialisasi dulu sebelum panggil fungsi
+if "chats" not in st.session_state:
+    st.session_state.chats = {}
+    buat_chat_baru()
+
+if "active_chat_id" not in st.session_state:
+    st.session_state.active_chat_id = list(st.session_state.chats.keys())[0]
+if "show_sidebar" not in st.session_state:
+    st.session_state.show_sidebar = False
+if "mode" not in st.session_state:
+    st.session_state.mode = "idle"
 
 # ==================== SEMUA FUNGSI FITUR - ANTI ERROR ====================
 def baca_pdf(file):
@@ -78,9 +85,7 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """Fungsi chat utama - udah fix bug role"""
     try:
-        # Filter cuma text biar ga error 400
         history = [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
         stream = groq_client.chat.completions.create(model=model, messages=history, stream=True)
         return stream
