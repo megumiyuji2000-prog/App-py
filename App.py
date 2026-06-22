@@ -5,13 +5,12 @@ from PIL import Image
 import time, base64, io, uuid
 from datetime import datetime
 import pytz
-import fitz
 from duckduckgo_search import DDGS
 from googlesearch import search as google_search
 import requests
 from bs4 import BeautifulSoup
 
-# ==================== CONFIG & STYLE ====================
+# ==================== CONFIG ====================
 st.set_page_config(page_title="Fanilla AI by FNL", page_icon="✨", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
 #MainMenu, footer, header {visibility: hidden;}
@@ -22,20 +21,20 @@ st.markdown("""<style>
 .image-note {font-size: 0.8rem; color: #9CA3AF; text-align: center; margin-top: 8px; font-style: italic;}
 </style>""", unsafe_allow_html=True)
 
-# ==================== INIT CLIENTS ====================
+# ==================== INIT ====================
 try:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     hf_client = InferenceClient(token=st.secrets.get("HF_TOKEN"))
 except Exception as e:
-    st.error(f"API Key error bro: {e}. Cek Secrets!")
+    st.error(f"API Key error: {e}")
     st.stop()
 
-# ==================== SESSION STATE ====================
+# ==================== STATE ====================
 def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V9.1 Lite. Fitur: Chat, Vision Gambar, Bikin Gambar, Search. Upload logo FNL coba ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Fanilla V9.2 Ultra Lite. Fitur: Chat, Liat Gambar, Buat Gambar, Search. Gas bro ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -49,56 +48,45 @@ if "active_chat_id" not in st.session_state:
     st.session_state.active_chat_id = list(st.session_state.chats.keys())[0]
 if "show_sidebar" not in st.session_state:
     st.session_state.show_sidebar = False
-if "mode" not in st.session_state:
-    st.session_state.mode = "idle"
 if "processing" not in st.session_state:
     st.session_state.processing = False
 
-# ==================== FUNGSI CORE ====================
+# ==================== FITUR CORE ====================
 def stream_with_timeout(stream, timeout=15):
-    """Anti stuck 15 detik"""
     start_time = time.time()
     full_response = ""
     for chunk in stream:
         if time.time() - start_time > timeout:
-            raise TimeoutError("Kelamaan bro >15 detik")
+            raise TimeoutError("Timeout >15 detik")
         if chunk.choices[0].delta.content:
             full_response += chunk.choices[0].delta.content
             yield full_response
     yield full_response
 
 def search_internet(query):
-    """Search DDG > Google"""
     hasil_final = []
     try:
         with DDGS() as ddgs:
             results = [r for r in ddgs.text(query, max_results=3, region="id-id")]
             if results:
                 for r in results:
-                    hasil_final.append(f"Sumber: {r['href']}\nJudul: {r['title']}\n{r['body']}")
-                st.toast("Search: DuckDuckGo ✅", icon="🦆")
+                    hasil_final.append(f"Sumber: {r['href']}\n{r['body']}")
+                st.toast("Search: DDG ✅", icon="🦆")
                 return "\n\n".join(hasil_final)
     except:
         pass
     try:
-        st.toast("Coba Google...", icon="🔍")
         for url in google_search(query, num_results=3, lang="id"):
-            try:
-                page = requests.get(url, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
-                soup = BeautifulSoup(page.content, 'html.parser')
-                text = ' '.join(soup.get_text().split()[:50])
-                hasil_final.append(f"Sumber: {url}\n{text}...")
-            except:
-                hasil_final.append(f"Sumber: {url}")
+            hasil_final.append(f"Sumber: {url}")
         if hasil_final:
             st.toast("Search: Google ✅", icon="✅")
             return "\n\n".join(hasil_final)
     except:
         pass
-    return "Search error bro."
+    return "Search error."
 
-def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """Chat + Auto Search"""
+def chat_ai(messages):
+    """1. CHAT + AUTO SEARCH"""
     try:
         user_terakhir = messages[-1]["content"].lower()
         keyword_realtime = ["hari ini", "terbaru", "sekarang", "harga", "kurs", "berita", "cuaca", "siapa", "kapan", "skor", "update", "2024", "2025", "2026", "hasil"]
@@ -107,30 +95,32 @@ def chat_ai(messages, model="llama-3.3-70b-versatile"):
         if perlu_search:
             with st.spinner("🔍 Browsing..."):
                 hasil_search = search_internet(messages[-1]["content"])
-                with st.expander("📝 Hasil Search"):
-                    st.code(hasil_search[:1000])
-                context_tambahan = f"\n\n[INFO TERBARU]:\n{hasil_search}\nJawab pake info di atas + kasih sumber."
-                messages[-1]["content"] += context_tambahan
+                messages[-1]["content"] += f"\n\n[INFO TERBARU]:\n{hasil_search}\nJawab pake info di atas."
 
         tz = pytz.timezone('Asia/Jakarta')
-        tanggal_hari_ini = datetime.now(tz).strftime("%A, %d %B %Y, %H:%M WIB")
+        tanggal = datetime.now(tz).strftime("%A, %d %B %Y, %H:%M WIB")
         system_prompt = {
             "role": "system",
-            "content": f"Kamu Fanilla AI dari FNL. Hari ini {tanggal_hari_ini}. Tahun 2026. Jawab santai pake 'bro'."
+            "content": f"Kamu Fanilla AI dari FNL. Hari ini {tanggal}. Tahun 2026. Jawab santai pake 'bro'."
         }
 
         history = [system_prompt] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
-        return groq_client.chat.completions.create(model=model, messages=history, stream=True, timeout=15)
+        stream = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=history,
+            stream=True,
+            timeout=15
+        )
+        return stream_with_timeout(stream, timeout=15)
     except Exception as e:
-        st.error(f"Error AI: {e}")
+        st.error(f"Error Chat: {e}")
         return None
 
-def chat_vision(images, prompt):
-    """Vision Gambar Doang - Timeout 15s"""
+def chat_vision(image, prompt):
+    """2. LIAT GAMBAR"""
     try:
         content_list = [{"type": "text", "text": f"Lo Fanilla AI dari FNL. User upload gambar. Pertanyaan: {prompt}. Jawab 'bro', rating 1-10 kalo logo, jelasin singkat. Max 3 kalimat."}]
 
-        image = images[0]
         image.thumbnail((512, 512))
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG", quality=70)
@@ -139,7 +129,7 @@ def chat_vision(images, prompt):
 
         messages = [{"role": "user", "content": content_list}]
 
-        st.toast("Analisis gambar 15 detik...", icon="🚀")
+        st.toast("Analisis gambar...", icon="🚀")
         stream = groq_client.chat.completions.create(
             model="meta-llama/llama-4-maverick-17b-128e-instruct",
             messages=messages,
@@ -150,31 +140,30 @@ def chat_vision(images, prompt):
         return stream_with_timeout(stream, timeout=15)
 
     except TimeoutError as e:
-        st.error(f"TIMEOUT BRO: {e}")
+        st.error(f"TIMEOUT: {e}")
         return None
     except Exception as e:
         error_msg = str(e)
         st.error(f"GAGAL VISION: {error_msg}")
         if "rate_limit" in error_msg.lower():
-            st.warning("Limit Groq abis bro. Tunggu jam 7 pagi WIB.")
+            st.warning("Limit Groq abis. Tunggu jam 7 pagi WIB.")
         return None
 
-def baca_pdf(file):
-    try:
-        doc = fitz.open(stream=file.read(), filetype="pdf")
-        text = "".join([page.get_text() for page in doc])
-        return text[:12000] if text else "PDF kosong bro"
-    except Exception as e:
-        return f"Gagal baca PDF: {e}"
-
 def generate_image(prompt):
-    if not st.secrets.get("HF_TOKEN"): return "HF_TOKEN belum diset bro"
+    """3. BUAT GAMBAR"""
+    if not st.secrets.get("HF_TOKEN"):
+        st.error("HF_TOKEN belum diset")
+        return None
     try:
         st.toast("Ngelukis...", icon="🎨")
-        image = hf_client.text_to_image(f"{prompt}, photorealistic, 8k", model="stabilityai/stable-diffusion-3-medium-diffusers")
+        image = hf_client.text_to_image(
+            f"{prompt}, photorealistic, 8k",
+            model="stabilityai/stable-diffusion-3-medium-diffusers"
+        )
         return image
     except Exception as e:
-        return f"Gagal bikin gambar: {e}"
+        st.error(f"Gagal bikin gambar: {e}")
+        return None
 
 def ganti_judul_otomatis(chat_id):
     chat = st.session_state.chats[chat_id]
@@ -186,7 +175,7 @@ def ganti_judul_otomatis(chat_id):
                 break
 
 # ==================== UI ====================
-if st.button("☰ Menu Fitur", use_container_width=True):
+if st.button("☰ Menu", use_container_width=True):
     st.session_state.show_sidebar = not st.session_state.show_sidebar
     st.rerun()
 
@@ -195,9 +184,10 @@ if st.session_state.show_sidebar:
         st.markdown('<div class="custom-sidebar">', unsafe_allow_html=True)
         if st.button("📝 Obrolan Baru", use_container_width=True, type="primary"):
             buat_chat_baru(); st.rerun()
-        st.markdown("**Fitur:**")
-        if st.button("📄 Rangkum PDF", use_container_width=True): st.session_state.mode = "pdf"; st.rerun()
-        if st.button("🎨 Bikin Gambar", use_container_width=True): st.session_state.mode = "gambar"; st.rerun()
+        st.markdown("**Fitur Aktif:**")
+        st.write("✅ Chat + Search Internet")
+        st.write("✅ Liat Gambar")
+        st.write("✅ Buat Gambar")
         st.markdown("**List Obrolan:**")
         sorted_chats = sorted(st.session_state.chats.items(), key=lambda x: x[1]["created_at"], reverse=True)
         for chat_id, chat_data in sorted_chats:
@@ -221,41 +211,18 @@ with col2:
 
 for msg in messages:
     with st.chat_message(msg["role"]):
-        if msg.get("type") == "image": st.image(msg["content"], caption=msg.get("caption"))
-        else: st.markdown(msg["content"])
+        if msg.get("type") == "image":
+            st.image(msg["content"], caption=msg.get("caption"))
+        else:
+            st.markdown(msg["content"])
 
-# ==================== MODE KHUSUS ====================
-if st.session_state.mode == "pdf":
-    pdf_file = st.file_uploader("Upload PDF", type="pdf")
-    if pdf_file:
-        with st.spinner("Baca PDF..."):
-            text = baca_pdf(pdf_file)
-            prompt = f"Rangkum dokumen ini:\n\n{text}"
-            messages.append({"role": "user", "content": f"[Upload PDF: {pdf_file.name}]", "type": "text"})
-            with st.chat_message("assistant"):
-                placeholder = st.empty(); full_response = ""
-                stream = chat_ai([{"role": "user", "content": prompt}])
-                if stream:
-                    for full_response in stream_with_timeout(stream, timeout=15):
-                        placeholder.markdown(full_response + "▌")
-                    placeholder.markdown(full_response)
-                    messages.append({"role": "assistant", "content": full_response, "type": "text"})
-            st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
-
-elif st.session_state.mode == "gambar":
-    prompt_gambar = st.text_input("Deskripsiin gambar:")
-    if prompt_gambar:
-        with st.spinner("Ngelukis..."):
-            result = generate_image(prompt_gambar)
-            if isinstance(result, str): st.error(result)
-            else:
-                st.image(result, caption=prompt_gambar)
-                st.markdown('<p class="image-note">Note: maaf bila gambar yang dihasilkan tidak memuaskan 🙏</p>', unsafe_allow_html=True)
-                messages.append({"role": "assistant", "content": result, "type": "image", "caption": prompt_gambar})
-            st.session_state.mode = "idle"; ganti_judul_otomatis(st.session_state.active_chat_id); st.rerun()
-
-# ==================== INPUT UTAMA ====================
-prompt = st.chat_input("Ketik / upload gambar...", accept_file=True, file_type=["jpg", "png", "jpeg"], disabled=st.session_state.processing)
+# ==================== INPUT ====================
+prompt = st.chat_input(
+    "Ketik / upload gambar...",
+    accept_file=True,
+    file_type=["jpg", "png", "jpeg"],
+    disabled=st.session_state.processing
+)
 
 if prompt and not st.session_state.processing:
     st.session_state.processing = True
@@ -265,39 +232,58 @@ if prompt and not st.session_state.processing:
         image = Image.open(prompt["files"][0])
         user_text = prompt.get("text", "Gimana gambar ini?")
         messages.append({"role": "user", "content": image, "type": "image", "caption": user_text})
-        with st.chat_message("user"): st.image(image, caption=user_text)
+        with st.chat_message("user"):
+            st.image(image, caption=user_text)
         with st.chat_message("assistant"):
             placeholder = st.empty()
             try:
-                with st.spinner("Mikirin 15 detik max..."):
-                    stream = chat_vision([image], user_text)
+                with st.spinner("Mikirin..."):
+                    stream = chat_vision(image, user_text)
                     if stream:
                         for full_response in stream:
                             placeholder.markdown(full_response + "▌")
                         placeholder.markdown(full_response)
                         messages.append({"role": "assistant", "content": full_response, "type": "text"})
                     else:
-                        placeholder.error("Vision gagal. Cek error merah di atas bro.")
+                        placeholder.error("Vision gagal. Cek error di atas.")
             except Exception as e:
-                placeholder.error(f"KECEGAT: {e}")
+                placeholder.error(f"Error: {e}")
 
-    # HANDLE TEKS
+    # HANDLE TEKS - BISA TRIGGER BUAT GAMBAR ATAU CHAT BIASA
     elif prompt.get("text"):
         user_text = prompt["text"]
-        messages.append({"role": "user", "content": user_text, "type": "text"})
-        with st.chat_message("user"): st.markdown(user_text)
-        with st.chat_message("assistant"):
-            placeholder = st.empty()
-            try:
-                with st.spinner("Ngetik..."):
-                    stream = chat_ai(messages)
-                    if stream:
-                        for full_response in stream_with_timeout(stream, timeout=15):
-                            placeholder.markdown(full_response + "▌")
-                        placeholder.markdown(full_response)
-                        messages.append({"role": "assistant", "content": full_response, "type": "text"})
-            except Exception as e:
-                placeholder.error(f"KECEGAT: {e}")
+
+        # DETEKSI KALO USER MAU BIKIN GAMBAR
+        if any(kata in user_text.lower() for kata in ["buatkan gambar", "bikin gambar", "gambar", "lukis", "generate image"]):
+            messages.append({"role": "user", "content": user_text, "type": "text"})
+            with st.chat_message("user"):
+                st.markdown(user_text)
+            with st.chat_message("assistant"):
+                with st.spinner("Ngelukis..."):
+                    result = generate_image(user_text)
+                    if result:
+                        st.image(result, caption=user_text)
+                        st.markdown('<p class="image-note">Note: maaf bila gambar tidak memuaskan 🙏</p>', unsafe_allow_html=True)
+                        messages.append({"role": "assistant", "content": result, "type": "image", "caption": user_text})
+                    else:
+                        st.error("Gagal bikin gambar")
+        else:
+            # CHAT BIASA + AUTO SEARCH
+            messages.append({"role": "user", "content": user_text, "type": "text"})
+            with st.chat_message("user"):
+                st.markdown(user_text)
+            with st.chat_message("assistant"):
+                placeholder = st.empty()
+                try:
+                    with st.spinner("Ngetik..."):
+                        stream = chat_ai(messages)
+                        if stream:
+                            for full_response in stream:
+                                placeholder.markdown(full_response + "▌")
+                            placeholder.markdown(full_response)
+                            messages.append({"role": "assistant", "content": full_response, "type": "text"})
+                except Exception as e:
+                    placeholder.error(f"Error: {e}")
 
     ganti_judul_otomatis(st.session_state.active_chat_id)
     st.session_state.processing = False
