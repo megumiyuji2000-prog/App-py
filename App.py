@@ -232,10 +232,11 @@ def chat_ai(messages):
         return None
 
 def chat_vision(image, prompt):
-    """2. LIAT GAMBAR"""
-    try:
-        content_list = [{"type": "text", "text": f"Lo Fanilla AI. User upload gambar. Pertanyaan: {prompt}. Jawab 'bro', rating 1-10 kalo logo. Max 3 kalimat."}]
+    """V9.4 - HYBRID: Groq > HF Fallback"""
 
+    # Step 1: Coba Groq dulu
+    try:
+        content_list = [{"type": "text", "text": f"Deskripsikan gambar. Pertanyaan: {prompt}. Max 3 kalimat."}]
         image.thumbnail((512, 512))
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG", quality=70)
@@ -243,17 +244,41 @@ def chat_vision(image, prompt):
         content_list.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
 
         messages = [{"role": "user", "content": content_list}]
+        st.toast("Coba Groq Vision...", icon="🚀")
+
         stream = groq_client.chat.completions.create(
             model="meta-llama/llama-4-maverick-17b-128e-instruct",
             messages=messages,
             stream=True,
-            timeout=15,
-            max_tokens=150
+            timeout=10,
+            max_tokens=100
         )
-        return stream_with_timeout(stream, timeout=15)
+        return stream_with_timeout(stream, timeout=10)
+
+    # Step 2: Kalo Groq gagal, pake HF
     except Exception as e:
-        st.error(f"GAGAL VISION: {str(e)}")
-        return None
+        st.toast(f"Groq gagal: {str(e)[:30]}. Pake HF...", icon="🤗")
+        try:
+            buffered = io.BytesIO()
+            image.save(buffered, format="JPEG")
+            API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+            headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+
+            response = requests.post(API_URL, headers=headers, data=buffered.getvalue(), timeout=15)
+            result = response.json()
+
+            if isinstance(result, list) and 'generated_text' in result[0]:
+                caption = result[0]['generated_text']
+                # Pake Llama teks buat jawab pake caption
+                final_prompt = f"Gambar isinya: '{caption}'. User tanya: {prompt}. Jawab 'bro', rating 1-10 kalo logo."
+                stream = chat_ai([{"role": "user", "content": final_prompt}])
+                return stream
+            else:
+                st.error(f"HF Error: {result}")
+                return None
+        except Exception as e2:
+            st.error(f"Semua vision gagal: {e2}")
+            return None
 
 def generate_image(prompt):
     """3. BUAT GAMBAR"""
