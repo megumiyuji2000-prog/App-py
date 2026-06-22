@@ -47,19 +47,17 @@ if "user_style" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== IMAGE GEN FIXED ====================
+# ==================== IMAGE GEN V14.4 ====================
 def generate_image_hf(prompt):
-    """Generate gambar pake FLUX.1-schnell - FIXED ERROR HANDLING"""
     API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
     try:
         response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
         if response.status_code == 200:
             image = Image.open(io.BytesIO(response.content))
             return image, None
         elif response.status_code == 503:
-            return None, "Model FLUX lagi loading. Tunggu 20-30 detik terus coba lagi."
+            return None, "Model FLUX lagi loading. Tunggu 30 detik terus coba lagi."
         elif response.status_code == 401:
             return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets."
         elif response.status_code == 429:
@@ -68,8 +66,6 @@ def generate_image_hf(prompt):
             return None, f"Error HF {response.status_code}: {response.text[:150]}"
     except requests.exceptions.Timeout:
         return None, "Timeout 60 detik. Server HF lemot. Coba lagi."
-    except requests.exceptions.RequestException as e:
-        return None, f"Network Error: {str(e)}"
     except Exception as e:
         return None, f"Error: {str(e)}"
 
@@ -78,10 +74,8 @@ def detect_user_style(text):
     text_lower = text.lower()
     formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda", "jelaskan"]
     bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "asu", "bung", "/gambar"]
-
     formal_score = sum(1 for w in formal_words if w in text_lower)
     bro_score = sum(1 for w in bro_words if w in text_lower)
-
     if bro_score > formal_score:
         return "santai"
     elif formal_score > 0:
@@ -98,24 +92,19 @@ def search_web(query):
         return "Search error."
     return "Tidak ada hasil."
 
-def ai_stream_gemini(prompt_text, image=None):
-    """V14.3 - FIX /gambar HANG"""
-    st.session_state.user_style = detect_user_style(prompt_text)
+def handle_image_command(prompt_text):
+    """V14.4 - FIX TOTAL. Ga pake yield biar ga diem"""
+    clean_prompt = prompt_text.replace("/gambar", "", 1).strip()
+    if not clean_prompt:
+        st.error("Promptnya kosong bro 😭\nContoh: `/gambar kucing pakai kacamata cyberpunk 4k`")
+        return
 
-    # COMMAND /gambar - FIXED
-    if prompt_text.lower().startswith("/gambar"):
-        clean_prompt = prompt_text.replace("/gambar", "", 1).strip()
-        if not clean_prompt:
-            yield "Promptnya kosong bro 😭\nContoh: `/gambar kucing pakai kacamata cyberpunk 4k`"
-            return
-
-        placeholder = st.empty()
-        placeholder.info(f"🎨 Otw generate: `{clean_prompt}`\nTunggu 20-30 detik kalo model baru bangun...")
-
+    with st.status(f"🎨 Lagi generate: `{clean_prompt}`...", expanded=True) as status:
+        st.write("Kirim request ke HuggingFace FLUX...")
         img, error = generate_image_hf(clean_prompt)
 
         if img:
-            placeholder.empty()
+            status.update(label="✅ Berhasil!", state="complete")
             st.image(img, caption=f"Generated: {clean_prompt}")
             st.session_state.messages.append({
                 "role": "assistant",
@@ -123,11 +112,17 @@ def ai_stream_gemini(prompt_text, image=None):
                 "type": "image",
                 "caption": f"Generated: {clean_prompt}"
             })
-            yield f"Nih bro hasilnya 🔥"
         else:
-            placeholder.empty()
-            yield f"❌ Gagal generate bro:\n\n`{error}`\n\n**Cek:**\n1. `HF_TOKEN` udah bener di Secrets?\n2. Coba lagi 30 detik\n3. Prompt jangan aneh-aneh"
-        return
+            status.update(label="❌ Gagal", state="error")
+            st.error(f"**Gagal generate bro:**\n\n`{error}`\n\n**Cek:**\n1. `HF_TOKEN` udah bener di Secrets?\n2. Coba lagi 30 detik\n3. Prompt jangan aneh-aneh")
+
+def ai_stream_gemini(prompt_text, image=None):
+    st.session_state.user_style = detect_user_style(prompt_text)
+
+    # COMMAND /gambar - PINDAH KE FUNGSI SENDIRI BIAR GA BUG
+    if prompt_text.lower().startswith("/gambar"):
+        handle_image_command(prompt_text)
+        return # PENTING: return kosong biar ga lanjut ke Gemini
 
     # AUTO SEARCH
     user_lower = prompt_text.lower()
@@ -239,21 +234,25 @@ if prompt and not st.session_state.processing:
             st.image(image, caption=user_text)
 
         with st.chat_message("assistant"):
-            placeholder = st.empty()
-            full_response = ""
-            try:
-                for chunk in ai_stream_gemini(user_text, image=image):
-                    full_response = chunk
-                    placeholder.markdown(full_response + "▌")
-                placeholder.markdown(full_response)
-                if full_response:
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": full_response,
-                        "type": "text"
-                    })
-            except Exception as e:
-                placeholder.error(f"Error: {e}")
+            # Cek dulu kalo /gambar + upload gambar
+            if user_text.lower().startswith("/gambar"):
+                handle_image_command(user_text)
+            else:
+                placeholder = st.empty()
+                full_response = ""
+                try:
+                    for chunk in ai_stream_gemini(user_text, image=image):
+                        full_response = chunk
+                        placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    if full_response:
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response,
+                            "type": "text"
+                        })
+                except Exception as e:
+                    placeholder.error(f"Error: {e}")
 
     elif prompt.get("text"):
         user_text = prompt["text"]
@@ -261,21 +260,25 @@ if prompt and not st.session_state.processing:
         with st.chat_message("user"):
             st.markdown(user_text)
         with st.chat_message("assistant"):
-            placeholder = st.empty()
-            full_response = ""
-            try:
-                for chunk in ai_stream_gemini(user_text):
-                    full_response = chunk
-                    placeholder.markdown(full_response + "▌")
-                placeholder.markdown(full_response)
-                if not user_text.lower().startswith("/gambar") and full_response:
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": full_response,
-                        "type": "text"
-                    })
-            except Exception as e:
-                placeholder.error(f"Error: {e}")
+            # Cek /gambar dulu sebelum stream
+            if user_text.lower().startswith("/gambar"):
+                handle_image_command(user_text)
+            else:
+                placeholder = st.empty()
+                full_response = ""
+                try:
+                    for chunk in ai_stream_gemini(user_text):
+                        full_response = chunk
+                        placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    if full_response:
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response,
+                            "type": "text"
+                        })
+                except Exception as e:
+                    placeholder.error(f"Error: {e}")
 
     st.session_state.processing = False
     st.rerun()
