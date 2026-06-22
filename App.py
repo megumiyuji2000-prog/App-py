@@ -7,6 +7,9 @@ from datetime import datetime
 import pytz
 import fitz # PyMuPDF
 from duckduckgo_search import DDGS
+from googlesearch import search as google_search # <-- BARU
+import requests # <-- BARU
+from bs4 import BeautifulSoup # <-- BARU
 import edge_tts
 from streamlit_mic_recorder import mic_recorder
 import speech_recognition as sr
@@ -35,7 +38,7 @@ def buat_chat_baru():
     chat_id = str(uuid.uuid4())
     st.session_state.chats[chat_id] = {
         "title": "Obrolan Baru",
-        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.8 nih. Udah bisa auto-browsing internet. Coba tanya 'harga bitcoin hari ini' ✨", "type": "text"}],
+        "messages": [{"role": "assistant", "content": "Hai bro! Fanilla V8.9 nih. Search Engine udah triple power. Coba tanya 'harga emas hari ini' ✨", "type": "text"}],
         "created_at": datetime.now()
     }
     st.session_state.active_chat_id = chat_id
@@ -62,13 +65,42 @@ def baca_pdf(file):
         return f"Gagal baca PDF: {e}"
 
 def search_internet(query):
+    """V8.9 - TRIPLE ENGINE: DDG > Google > Fallback"""
+    hasil_final = []
+
+    # MESIN 1: DuckDuckGo
     try:
         with DDGS() as ddgs:
-            results = [r for r in ddgs.text(query, max_results=4)]
-        if not results: return "Ga nemu hasil bro"
-        return "\n\n".join([f"Sumber: {r['href']}\nJudul: {r['title']}\n{r['body']}" for r in results])
+            results = [r for r in ddgs.text(query, max_results=3, region="id-id")]
+            if results:
+                for r in results:
+                    hasil_final.append(f"Sumber: {r['href']}\nJudul: {r['title']}\n{r['body']}")
+                st.toast("Search: DuckDuckGo ✅", icon="🦆")
+                return "\n\n".join(hasil_final)
     except Exception as e:
-        return f"Search error: {e}"
+        st.toast(f"DuckDuckGo gagal", icon="⚠️")
+
+    # MESIN 2: Google Search - BACKUP
+    try:
+        st.toast("Coba Google Search...", icon="🔍")
+        for url in google_search(query, num_results=3, lang="id"):
+            try:
+                page = requests.get(url, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
+                soup = BeautifulSoup(page.content, 'html.parser')
+                # Ambil 50 kata pertama
+                text = ' '.join(soup.get_text().split()[:50])
+                hasil_final.append(f"Sumber: {url}\n{text}...")
+            except:
+                hasil_final.append(f"Sumber: {url}\nKonten ga bisa diambil")
+
+        if hasil_final:
+            st.toast("Search: Google ✅", icon="✅")
+            return "\n\n".join(hasil_final)
+    except Exception as e:
+        st.toast(f"Google gagal", icon="⚠️")
+
+    # MESIN 3: FALLBACK
+    return "Waduh bro semua mesin search lagi error/blocked. Info realtime ga bisa diambil sekarang. Coba tanya yang umum aja dulu."
 
 async def _edge_tts_async(text, voice="id-ID-ArdiNeural"):
     communicate = edge_tts.Communicate(text, voice)
@@ -98,17 +130,20 @@ def voice_to_text(audio_bytes):
     except: return None
 
 def chat_ai(messages, model="llama-3.3-70b-versatile"):
-    """V8.8 - AUTO SEARCH + TIME AWARE"""
+    """V8.9 - AUTO SEARCH + TIME AWARE + DEBUG"""
     try:
         # 1. DETEKSI AUTO SEARCH
         user_terakhir = messages[-1]["content"].lower()
-        keyword_realtime = ["hari ini", "terbaru", "sekarang", "harga", "kurs", "berita", "cuaca", "siapa yang", "kapan", "skor", "update", "2024", "2025", "2026"]
+        keyword_realtime = ["hari ini", "terbaru", "sekarang", "harga", "kurs", "berita", "cuaca", "siapa yang", "kapan", "skor", "update", "2024", "2025", "2026", "hasil"]
         perlu_search = any(kata in user_terakhir for kata in keyword_realtime)
 
         if perlu_search:
             with st.spinner("🔍 Browsing internet dulu bro..."):
                 hasil_search = search_internet(messages[-1]["content"])
-                context_tambahan = f"\n\n[INFO TERBARU DARI INTERNET - WAJIB DIPAKE]:\n{hasil_search}\nJawab pertanyaan user pake info di atas. Kasih sumbernya."
+                # Kasih tau user hasil searchnya
+                with st.expander("📝 Hasil Search Mentah - Klik buat debug"):
+                    st.code(hasil_search[:1000])
+                context_tambahan = f"\n\n[INFO TERBARU DARI INTERNET - WAJIB DIPAKE]:\n{hasil_search}\nJawab pertanyaan user pake info di atas. Sebutin sumbernya."
                 messages[-1]["content"] += context_tambahan
 
         # 2. JAM DINDING
@@ -116,7 +151,7 @@ def chat_ai(messages, model="llama-3.3-70b-versatile"):
         tanggal_hari_ini = datetime.now(tz).strftime("%A, %d %B %Y, %H:%M WIB")
         system_prompt = {
             "role": "system",
-            "content": f"Kamu adalah Fanilla AI. Hari ini adalah {tanggal_hari_ini}. Tahun 2026. Knowledge cutoff kamu Desember 2023. Kalo ada [INFO TERBARU DARI INTERNET], itu yang paling bener. Selalu jawab santai pake 'bro' dan kasih sumber kalo pake internet."
+            "content": f"Kamu adalah Fanilla AI. Hari ini adalah {tanggal_hari_ini}. Tahun 2026. Knowledge cutoff kamu Desember 2023. Kalo ada [INFO TERBARU DARI INTERNET], itu yang paling bener. Selalu jawab santai pake 'bro' dan kasih sumber link kalo pake internet."
         }
 
         history = [system_prompt] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("type") == "text"]
