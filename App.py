@@ -12,8 +12,11 @@ import base64
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
-# ==================== CEK SECRETS DULU - BIAR GAK LOADING ====================
-if "GEMINI_API_KEY" not in st.secrets or "GROQ_API_KEY" not in st.secrets:
+# ==================== CEK SECRETS DULU ====================
+try:
+    GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
+    GROQ_KEY = st.secrets["GROQ_API_KEY"]
+except:
     st.error("API Key belum diisi. Masuk Manage app → Settings → Secrets")
     st.code('GEMINI_API_KEY = "xxx"\nGROQ_API_KEY = "xxx"', language="toml")
     st.stop()
@@ -70,30 +73,20 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# LOGO - KALO GAK ADA GAK ERROR
+# LOGO
 try:
     with open("logo.png", "rb") as f:
         data = base64.b64encode(f.read()).decode()
     st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>', unsafe_allow_html=True)
 except:
-    pass # Biar gak crash kalo logo.png belum diupload
+    pass
 
-# ==================== INIT API - PAKE TRY EXCEPT BIAR GAK HANG ====================
-@st.cache_resource
-def init_ai():
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-        groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-        return gemini_model, groq_client
-    except Exception as e:
-        st.error(f"Gagal konek ke AI. Cek API Key di Secrets. Error: {e}")
-        st.stop()
-
-gemini_model, groq_client = init_ai()
+# ==================== INIT API - GAK PAKE CACHE + GAK PAKE start_chat ====================
+genai.configure(api_key=GEMINI_KEY)
+gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+groq_client = Groq(api_key=GROQ_KEY)
 
 if "messages" not in st.session_state: st.session_state.messages = []
-if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
 # ==================== TOAST CUSTOM ====================
@@ -113,9 +106,8 @@ def show_custom_toast(message, icon="🎨"):
     </script>
     """
     toast_placeholder.markdown(toast_html, unsafe_allow_html=True)
-    return toast_placeholder
 
-# ==================== ORION BRAIN V7.1 ====================
+# ==================== ORION BRAIN V7.2 ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran", "bingung", "pusing"]):
@@ -142,7 +134,7 @@ def generate_gambar(prompt):
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
         return None, "Server sedang penuh"
-    except Exception as e:
+    except:
         return None, "Terjadi kesalahan, silakan coba lagi"
 
 def remix_gambar_hasil_generate(prompt_remix):
@@ -160,7 +152,7 @@ def remix_gambar_hasil_generate(prompt_remix):
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
         return None, "Gagal me-remix gambar"
-    except Exception as e:
+    except:
         return None, "Terjadi kesalahan saat remix"
 
 def image_to_bytes(img):
@@ -189,7 +181,7 @@ KEPRIBADIAN:
 Profesional, empatik, dan solutif. Gunakan bahasa Indonesia yang sopan, jelas, dan mudah dipahami semua kalangan. Gunakan kata "Anda" atau "kamu".
 
 ATURAN PARAGRAF MUTLAK:
-1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf. Total 10 baris.
+1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf.
 2. **NGAJAR SD-SMP**: 2-3 paragraf. WAJIB 5 baris per paragraf.
 3. **NGAJAR SMA**: 3-4 paragraf. WAJIB 5 baris per paragraf.
 4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
@@ -226,15 +218,21 @@ ATURAN LAIN:
 
     full_prompt = system_prompt + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
 
+    # GAK PAKE start_chat - LANGSUNG generate_content BIAR GAK HANG
     try:
         if image:
-            res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=False)
+            res = gemini_model.generate_content([full_prompt, image])
         else:
-            res = st.session_state.gemini_chat.send_message(full_prompt, stream=False)
+            res = gemini_model.generate_content(full_prompt)
         return [("text", res.text, tingkat)]
-    except:
+    except Exception as e:
         try:
-            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.3)
+            chat = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": full_prompt}],
+                model="llama-3.3-70b-versatile",
+                max_tokens=2000,
+                temperature=0.3
+            )
             return [("text", chat.choices[0].message.content, tingkat)]
         except:
             return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.\nKami sedang mengupayakan perbaikan secepatnya.\nData Anda tetap aman.\nTerima kasih atas pengertiannya.", "ngobrol")]
@@ -275,7 +273,7 @@ for i, msg in enumerate(st.session_state.messages):
         else:
             st.markdown(msg["content"], unsafe_allow_html=True)
 
-# HANDLE INPUT
+# HANDLE INPUT - GAK PAKE st.rerun() BIAR GAK LOOP
 prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
 if prompt:
@@ -298,26 +296,12 @@ if prompt:
     if user_file:
         user_img = Image.open(user_file).convert("RGB")
         st.session_state.messages.append({"role": "user", "type": "image", "content": user_img})
-        with st.chat_message("user"):
-            st.image(user_img, caption=user_text if user_text else "Foto soal")
 
     if user_text:
-        if not user_file:
-            st.session_state.messages.append({"role": "user", "type": "text", "content": user_text})
-            with st.chat_message("user"): st.markdown(user_text)
+        st.session_state.messages.append({"role": "user", "type": "text", "content": user_text})
 
-        with st.chat_message("assistant"):
-            with st.spinner("Orion sedang berpikir..."):
-                hasil = kirim_ke_ai(user_text, user_img)
-            for tipe, konten, *rest in hasil:
-                tingkat = rest[0] if rest else "ngobrol"
-                if tipe == "image":
-                    st.markdown(f'<div class="orion-badge {tingkat}">{ "✨ REMIX" if tingkat == "remix" else "🎨 GAMBAR"}</div>', unsafe_allow_html=True)
-                    st.image(konten, use_container_width=True)
-                    st.download_button("📥 Unduh", image_to_bytes(konten), f"orion_{int(time.time())}.png", "image/png", key=f"dl_{time.time()}", use_container_width=True)
-                    st.session_state.messages.append({"role": "assistant", "type": "image", "content": konten, "tingkat": tingkat})
-                else:
-                    st.markdown(f'<div class="orion-badge {tingkat}">{"💬"}</div>', unsafe_allow_html=True)
-                    st.markdown(konten, unsafe_allow_html=True)
-                    st.session_state.messages.append({"role": "assistant", "type": "text", "content": konten, "tingkat": tingkat})
-    st.rerun()
+    # PROSES AI
+    hasil = kirim_ke_ai(user_text, user_img)
+    for tipe, konten, *rest in hasil:
+        tingkat = rest[0] if rest else "ngobrol"
+        st.session_state.messages.append({"role": "assistant", "type": tipe, "content": konten, "tingkat": tingkat})
