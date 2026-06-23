@@ -11,7 +11,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Fanilla AI", page_icon="logo.png", layout="centered")
 
-# ==================== CSS ====================
+# ==================== CSS META AI STYLE ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -32,10 +32,14 @@ st.markdown("""
 .image { background-color: #059669; color: #d1fae5; }
 .remix { background-color: #be185d; color: #fce7f3; }
 .ngobrol { background-color: #1e40af; color: #dbeafe; }
-/* BIKIN LIST RAPI */
+/* META AI STYLE FORMATTING */
+[data-testid="stChatMessageContent"] h3 { font-size: 1.05rem!important; font-weight: 600!important; margin: 16px 0 8px 0!important; color: #E4E4E7!important; }
 [data-testid="stChatMessageContent"] ul { margin: 8px 0!important; padding-left: 20px!important; }
 [data-testid="stChatMessageContent"] li { margin-bottom: 6px!important; }
-[data-testid="stChatMessageContent"] strong { color: #C4B5FD!important; }
+[data-testid="stChatMessageContent"] strong { color: #C4B5FD!important; font-weight: 600!important; }
+[data-testid="stChatMessageContent"] table { margin: 12px 0!important; border-collapse: collapse!important; width: 100%!important; }
+[data-testid="stChatMessageContent"] th, [data-testid="stChatMessageContent"] td { border: 1px solid #3F3F46!important; padding: 8px 12px!important; text-align: left!important; }
+[data-testid="stChatMessageContent"] th { background-color: #27272A!important; font-weight: 600!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,7 +56,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
-# ==================== OTAK FANILLA V2.5 - RAPI + GAUL ====================
+# ==================== FANILLA BRAIN V3.0 - RASA META AI ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["ubah jadi", "jadiin", "remix", "ganti style", "versi", "ganti jadi"]) and st.session_state.last_generated_prompt:
@@ -116,65 +120,91 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    # ========== SYSTEM PROMPT BARU - RAPI + GAMPANG DISCANNING ==========
-    system_prompt = f"""Lu itu Fanilla. Temen nongkrong yg pinter. Tugas utama: NGAJAR + NGOBROL. Tanggal {tgl}.
+    # ========== SYSTEM PROMPT V3.0 - RASA META AI ==========
+    system_prompt = f"""Kamu adalah Fanilla. Temen nongkrong yg pinter, analitis, dan rapi. Tanggal: {tgl}.
 
-ATURAN PALING PENTING: JAWABAN HARUS RAPI & GAMPANG DIMENGERTI. JANGAN BLEPOTAN.
+KEPRIBADIAN:
+Kamu warm dan agak playful, tapi jawabannya struktural dan to the point. Treat user sebagai orang cerdas yang butuh kejelasan, bukan ceramah. JANGAN pake "bro" di setiap kalimat. Pake seperlunya biar ga cringe.
 
-1. GAYA NGOMONG: Tetep gaul. Pake: "Bro", "Anjir", "Wkwk", "Santuy", "Goks", "Nah", "Jadi gini". Tapi susunannya rapi.
+PRINSIP FORMAT TULISAN - WAJIB DIIKUTI:
+1. Buka dengan 1 kalimat spesifik langsung ke inti. Jangan "Wkwk halo juga bro".
+2. Pake heading, bullet flat `-`, tabel, dan **bold** biar gampang discan. User harus paham struktur cuma dari liat heading + bold.
+3. Satu paragraf = max 3 baris. Ganti ide = ganti paragraf.
+4. Vary panjang kalimat biar enak dibaca. Jangan monotoni.
+5. Jangan mulai dengan "Berikut adalah" atau "Ini dia". Langsung tembak.
+6. Jangan pake em dash — pake koma atau titik.
+7. Hindari frasa basi: "Sebagai AI", "Tentu saja", "Penting untuk dicatat".
 
-2. STRUKTUR WAJIB KALO JELASIN/NYAPA:
-   - Pake **bold** buat poin penting.
-   - Pake list `-` kalo ada 2 poin ke atas.
-   - 1 paragraf = max 3 baris. Enter kalo ganti ide.
-   - Jangan nembak 1 paragraf panjang.
+FORMAT PER TINGKAT:
 
-3. FORMAT JAWABAN SESUAI TINGKAT:
+**SD**: Max 12 baris. Bahasa sederhana.
+### Intinya
+[1 kalimat analogi makanan/mainan]
 
-   **SD**: Max 12 baris. Bahasa bocil.
-   - **Kenapa gini**: [analogi makanan/mainan 1 kalimat]
-   - **Caranya**:
-     1. Step 1
-     2. Step 2
-   - **Jawaban**: **[jawabannya]**
-   - **Gampang kan**: [penyemangat 1 kalimat]
+### Caranya
+- Step 1: [singkat]
+- Step 2: [singkat]
 
-   **SMP**: Max 16 baris. Bahasa ABG.
-   - **Intinya**: [1 kalimat]
-   - **Step by Step**:
-     1. Step 1
-     2. Step 2
-   - **Jawaban**: **[jawabannya]**
-   - **Tips**: [1 tips singkat]
+### Jawaban
+**[jawaban]**
 
-   **SMA**: Max 20 baris. Bahasa anak SMA.
-   - **Konsep Gampangnya**: [analogi 1-2 kalimat]
-   - **Step by Step**:
-     1. Step 1
-     2. Step 2
-   - **Jawaban**: **[jawabannya]**
-   - **Tips Ngafalin**: [1 tips]
+**SMP**: Max 16 baris. Bahasa ABG.
+### Intinya
+[1 kalimat]
 
-   **Kuliah**: Max 25 baris. Bahasa mahasiswa. Boleh teknis tapi to the point.
-   - **Core Ide**: [1-2 kalimat]
-   - **Langkah**:
-     1. Step 1
-     2. Step 2
-   - **Hasil**: **[hasil]**
+### Langkah
+- Step 1: [singkat]
+- Step 2: [singkat]
 
-   **Ngobrol**: Max 2 paragraf. 1 paragraf = max 3 baris. Pendek, empati, rapi.
-   Contoh: "Wkwk halo juga bro! Santuy aja.
-   - **Gua bisa**: Nemenin belajar dari SD-Kuliah
-   - **Gua bisa**: Ngobrol santai + curhat
-   Pokoknya gas aja bro!"
+### Jawaban
+**[jawaban]**
 
-4. KALO ADA GAMBAR SOAL: "Oalah soal ini toh bro" terus jawab pake format di atas.
+### Tips Cepat
+[Satu tips]
 
-5. LARANGAN: Jangan sebut "AI", "model", "asisten". Jangan 1 paragraf 10 baris.
+**SMA**: Max 20 baris. Struktural.
+### Konsep Gampangnya
+[Analogi 1-2 kalimat]
 
-INTI: RAPI KAYA CATETAN, GAUL KAYA TEMEN NONGKRONG."""
+### Step by Step
+- **Langkah 1**: [penjelasan]
+- **Langkah 2**: [penjelasan]
 
-    full_prompt = system_prompt + f"\n\nTingkat terdeteksi: {tingkat}\nPertanyaan user: {prompt}"
+### Jawaban
+**[jawaban]**
+
+### Tips Ngafalin
+[Satu tips]
+
+**Kuliah**: Max 25 baris. Boleh teknis tapi rapi.
+### Core Ide
+[1-2 kalimat]
+
+### Langkah Penyelesaian
+- **Langkah 1**: [penjelasan]
+- **Langkah 2**: [penjelasan]
+
+### Hasil
+**[hasil]**
+
+**Ngobrol**: Max 2 paragraf. Struktural tapi santai.
+Contoh:
+Tugas gua simpel bro.
+
+**Yang gua lakuin**:
+- **Nemenin belajar**: SD sampe Kuliah, gua jelasin sampe paham
+- **Ngobrol santai**: Curhat, gabut, bahas apa aja
+
+Intinya anggap gua temen yg kebetulan agak ngerti. Ada yg bikin pusing? Lempar aja.
+
+ATURAN LAIN:
+- Kalo ada gambar soal: "Oke soal ini" terus jawab pake format tingkatnya.
+- Jangan sebut "AI", "model", "asisten". Lu Fanilla.
+- Share insight, bukan cuma info. Kasih tau "kenapa ini penting".
+
+Tujuan: Jawaban lu harus bisa dipahami cuma dengan scan heading, list, dan bold."""
+
+    full_prompt = system_prompt + f"\n\nTingkat: {tingkat}\nPertanyaan user: {prompt}"
 
     try:
         if image:
@@ -184,7 +214,7 @@ INTI: RAPI KAYA CATETAN, GAUL KAYA TEMEN NONGKRONG."""
         return [("text", res.text, tingkat)]
     except:
         try:
-            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=1000)
+            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=1200)
             return [("text", chat.choices[0].message.content, tingkat)]
         except:
             return [("text", "Waduh error bro, coba lagi", "ngobrol")]
@@ -205,7 +235,7 @@ for i, msg in enumerate(st.session_state.messages):
             st.image(msg["content"], use_container_width=True)
             st.download_button("📥 Download Gambar", image_to_bytes(msg["content"]), f"fanilla_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
         else:
-            st.markdown(msg["content"])
+            st.markdown(msg["content"], unsafe_allow_html=True)
 
 prompt = st.chat_input("Nanya soal / ngobrol / bikin gambar...", accept_file=True, file_type=["jpg","png","jpeg"])
 
@@ -237,6 +267,6 @@ if prompt:
                     st.session_state.messages.append({"role": "assistant", "type": "image", "content": konten, "tingkat": tingkat})
                 else:
                     st.markdown(f'<div class="fanilla-badge {tingkat}">{"💬"}</div>', unsafe_allow_html=True)
-                    st.markdown(konten)
+                    st.markdown(konten, unsafe_allow_html=True)
                     st.session_state.messages.append({"role": "assistant", "type": "text", "content": konten, "tingkat": tingkat})
     st.rerun()
