@@ -5,6 +5,8 @@ from PIL import Image
 from datetime import datetime
 import pytz
 import time
+import requests
+import io
 
 st.set_page_config(
     page_title="Fanilla AI",
@@ -36,7 +38,8 @@ div[data-testid="stImage"] > img { border: none!important; background: transpare
 .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
 .gemini { background-color: #1e40af; color: #dbeafe; }
 .llama { background-color: #7c2d12; color: #ffedd5; }
-/* ANIMASI LOADING KAYAK GUA */
+.image { background-color: #059669; color: #d1fae5; }
+/* ANIMASI LOADING */
 .typing-indicator { display: flex; align-items: center; padding: 12px 16px; background-color: #18181B; border-radius: 18px; border: 1px solid #27272A; width: fit-content; }
 .typing-indicator span { height: 8px; width: 8px; background-color: #A78BFA; border-radius: 50%; display: inline-block; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out both; }
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
@@ -50,8 +53,9 @@ try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     gemini_model = genai.GenerativeModel('gemini-2.5-flash')
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    HF_TOKEN = st.secrets["HF_TOKEN"] # TOKEN FLUX BUNG
 except:
-    st.error("Waduh bro, API Key belum diset. Butuh GEMINI_API_KEY dan GROQ_API_KEY di Secrets.")
+    st.error("Waduh bro, API Key belum diset. Butuh GEMINI_API_KEY, GROQ_API_KEY, HF_TOKEN di Secrets.")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -66,14 +70,44 @@ if "req_count" not in st.session_state:
 # ==================== OTAK FANILLA GAUL MAX ====================
 def deteksi_tingkat(text):
     t = text.lower()
+    if any(k in t for k in ["buatin gambar", "bikin gambar", "generate gambar", "gambar", "draw", "create image", "lukis"]): return "image"
     if any(k in t for k in ["sd","kelas 1","kelas 2","kelas 3","kelas 4","kelas 5","kelas 6","penjumlahan","perkalian"]): return "sd"
     if any(k in t for k in ["smp","kelas 7","kelas 8","kelas 9","aljabar","persamaan"]): return "smp"
     if any(k in t for k in ["sma","kelas 10","kelas 11","kelas 12","utbk","snbt","limit","turunan","integral"]): return "sma"
     if any(k in t for k in ["kuliah","kalkulus","aljabar linear","statistik","matkul","universitas"]): return "kuliah"
     return "ngobrol"
 
+def generate_gambar_flux(prompt):
+    try:
+        st.toast("Fanilla lagi ngelukis pake FLUX...", icon="⚡")
+        API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+        if response.status_code == 200:
+            image = Image.open(io.BytesIO(response.content))
+            return image, None
+        elif response.status_code == 503:
+            return None, "Anjir bro server FLUX lagi rame. Coba 20 detik lagi ya 🙏"
+        else:
+            return None, f"Waduh error bro: {response.status_code}"
+    except Exception as e:
+        return None, f"Error anjir: {str(e)[:80]}"
+
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
+
+    # KALO USER MINTA GAMBAR - PAKE FLUX BUNG
+    if tingkat == "image":
+        st.session_state.req_count += 1
+        img, error = generate_gambar_flux(prompt)
+        if img:
+            yield img, "image", "image"
+        else:
+            yield error, "ngobrol", "error"
+        return
+
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
     # NOTIF KALO LIMIT MAU ABIS BUNG
@@ -94,6 +128,8 @@ GAYA NGOMONG LU:
 4. JANGAN SEBUT "AI", "MODEL", "ASISTEN". Lu itu Fanilla, temennya user.
 5. JANGAN NGASIH CERAMAH PANJANG. To the point tapi tetep asik.
 
+KALO USER MINTA GAMBAR: Bilang "Oke bro gua buatin pake FLUX" terus diemin. Nanti sistem yg handle.
+
 ATURAN JAWAB:
 - TK-SD: 10-16 baris. Bahasa bocil: "Jadi gini adek, 2+2 itu kayak lu punya 2 permen...". Pake analogi makanan/mainan.
 - SMP: 13-19 baris. Bahasa ABG: "Oke bro, aljabar tuh sebenernya gampang...". Pake analogi game/sosmed.
@@ -110,7 +146,7 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
     # ========== COBA GEMINI DULU ==========
     try:
-        time.sleep(1.5) # Biar loadingnya keliatan
+        time.sleep(1.5)
         if image:
             res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=True)
         else:
@@ -166,12 +202,12 @@ if len(st.session_state.messages) == 0:
         st.image("logo.png", width=80)
 
     st.markdown('<div class="fanilla-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 😎</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa, bikin gambar juga bisa ⚡</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("tingkat") and msg["role"] == "assistant":
-            badge_map = {"sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 Kuliah", "ngobrol": "💬 Ngobrol"}
+            badge_map = {"sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 Kuliah", "ngobrol": "💬 Ngobrol", "image": "⚡ FLUX"}
             label = badge_map.get(msg["tingkat"], "💬 Ngobrol")
             model_badge = f"<span class='model-badge {msg.get('model','gemini')}'>{msg.get('model','gemini').upper()}</span>"
             st.markdown(f'<div class="fanilla-badge">{label}{model_badge}</div>', unsafe_allow_html=True)
@@ -194,20 +230,26 @@ if prompt:
         with st.chat_message("user"):
             st.image(img, caption=txt)
         with st.chat_message("assistant"):
-            # LOADING KAYAK GUA BUNG - 3 TITIK LONCAT-LONCAT
             loading_ph = st.empty()
-            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span><span></span></div>', unsafe_allow_html=True)
+            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span></div>', unsafe_allow_html=True)
 
             ph = st.empty()
             out = ""
             for c, t, m in kirim_ke_ai(txt, image=img):
-                out += c
-                tingkat_aktif = t
-                model_aktif = m
-                loading_ph.empty() # Hapus loading pas udah ada jawaban
-                ph.markdown(out + "▌")
-            ph.markdown(out)
-            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
+                if isinstance(c, Image.Image):
+                    loading_ph.empty()
+                    ph.image(c)
+                    st.session_state.messages.append({"role": "assistant", "content": c, "type": "image", "tingkat": "image", "model": "image"})
+                    break
+                else:
+                    out += c
+                    tingkat_aktif = t
+                    model_aktif = m
+                    loading_ph.empty()
+                    ph.markdown(out + "▌")
+            if out:
+                ph.markdown(out)
+                st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
 
     elif prompt.get("text"):
         txt = prompt["text"]
@@ -215,18 +257,24 @@ if prompt:
         with st.chat_message("user"):
             st.markdown(txt)
         with st.chat_message("assistant"):
-            # LOADING KAYAK GUA BUNG - 3 TITIK LONCAT-LONCAT
             loading_ph = st.empty()
-            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span><span></span></div>', unsafe_allow_html=True)
+            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span></div>', unsafe_allow_html=True)
 
             ph = st.empty()
             out = ""
             for c, t, m in kirim_ke_ai(txt):
-                out += c
-                tingkat_aktif = t
-                model_aktif = m
-                loading_ph.empty() # Hapus loading pas udah ada jawaban
-                ph.markdown(out + "▌")
-            ph.markdown(out)
-            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
+                if isinstance(c, Image.Image):
+                    loading_ph.empty()
+                    ph.image(c)
+                    st.session_state.messages.append({"role": "assistant", "content": c, "type": "image", "tingkat": "image", "model": "image"})
+                    break
+                else:
+                    out += c
+                    tingkat_aktif = t
+                    model_aktif = m
+                    loading_ph.empty()
+                    ph.markdown(out + "▌")
+            if out:
+                ph.markdown(out)
+                st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
     st.rerun()
