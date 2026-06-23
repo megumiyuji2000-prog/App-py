@@ -13,7 +13,7 @@ import base64
 st.set_page_config(page_title="Fanilla AI", page_icon="logo.png", layout="centered")
 
 # ==================== LIMIT CHAT ====================
-MAX_CHAT = 20 # GANTI SESUAI LIMIT LU
+MAX_CHAT = 25
 if "chat_count" not in st.session_state:
     st.session_state.chat_count = 0
 
@@ -58,10 +58,8 @@ st.markdown(f"""
    [data-testid="stChatMessageContent"] ul {{ margin: 6px 0!important; padding-left: 18px!important; }}
    [data-testid="stChatMessageContent"] li {{ margin-bottom: 4px!important; }}
    [data-testid="stChatMessageContent"] strong {{ color: #7C3AED!important; font-weight: 600!important; }}
-
-   /* CUSTOM TOAST DENGAN TOMBOL X */
-  .fanilla-toast {{ position: fixed; top: 70px; right: 20px; z-index: 9999; background: {THEME['toast_bg']}; color: {THEME['text']}; padding: 12px 16px; border-radius: 12px; border: 1px solid {THEME['border']}; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; max-width: 320px; animation: slideIn 0.3s ease; }}
-  .fanilla-toast-close {{ background: none; border: none; color: {THEME['badge_text']}; font-size: 18px; cursor: pointer; padding: 0 4px; }}
+.fanilla-toast {{ position: fixed; top: 70px; right: 20px; z-index: 9999; background: {THEME['toast_bg']}; color: {THEME['text']}; padding: 12px 16px; border-radius: 12px; border: 1px solid {THEME['border']}; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; max-width: 320px; animation: slideIn 0.3s ease; }}
+.fanilla-toast-close {{ background: none; border: none; color: {THEME['badge_text']}; font-size: 18px; cursor: pointer; padding: 0 4px; }}
    @keyframes slideIn {{ from {{ transform: translateX(100%); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
 </style>
 """, unsafe_allow_html=True)
@@ -105,9 +103,12 @@ def show_custom_toast(message, icon="🎨"):
     toast_placeholder.markdown(toast_html, unsafe_allow_html=True)
     return toast_placeholder
 
-# ==================== FANILLA BRAIN V5.3 ====================
+# ==================== FANILLA BRAIN V6.0 - PROBLEM SOLVER ====================
 def deteksi_tingkat(text):
     t = text.lower()
+    # PROBLEM SOLVER MODE
+    if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran"]):
+        return "problem_solver"
     if any(k in t for k in ["s3", "disertasi", "rbv", "dynamic capabilities", "transformer", "freire", "dekonstruksi", "backpropagation", "doktoral"]):
         return "kuliah"
     if any(k in t for k in ["ubah jadi", "jadiin", "remix", "ganti style", "versi", "ganti jadi"]) and st.session_state.last_generated_prompt:
@@ -121,7 +122,7 @@ def deteksi_tingkat(text):
     return "ngobrol"
 
 def generate_gambar(prompt):
-    toast = show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "🎨")
+    show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "🎨")
     st.session_state.last_generated_prompt = prompt
     encoded = urllib.parse.quote(prompt[:200])
     url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
@@ -129,15 +130,15 @@ def generate_gambar(prompt):
         r = requests.get(url, timeout=45)
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
-        return None, "Server lagi penuh"
+        return None, "Server sedang penuh"
     except Exception as e:
-        return None, "Error bro, coba lagi"
+        return None, "Terjadi kesalahan, silakan coba lagi"
 
 def remix_gambar_hasil_generate(prompt_remix):
     if not st.session_state.last_generated_prompt:
-        return None, "Bikin gambar dulu bro baru bisa di-remix. Contoh: 'bikin gambar kucing'"
+        return None, "Buat gambar dulu baru bisa di-remix. Contoh: 'buatkan gambar kucing'"
 
-    toast = show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "✨")
+    show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "✨")
     full_prompt = f"{st.session_state.last_generated_prompt}, {prompt_remix}"
     st.session_state.last_generated_prompt = full_prompt
 
@@ -147,9 +148,9 @@ def remix_gambar_hasil_generate(prompt_remix):
         r = requests.get(url, timeout=45)
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
-        return None, "Gagal remix"
+        return None, "Gagal me-remix gambar"
     except Exception as e:
-        return None, "Error remix"
+        return None, "Terjadi kesalahan saat remix"
 
 def image_to_bytes(img):
     buf = io.BytesIO()
@@ -162,7 +163,7 @@ def kirim_ke_ai(prompt, image=None):
     if tingkat == "image":
         img, err = generate_gambar(prompt)
         if img: return [("image", img, tingkat)]
-        return [("text", f"Gagal bro: {err}", "ngobrol")]
+        return [("text", f"Gagal membuat gambar: {err}", "ngobrol")]
 
     if tingkat == "remix":
         img, err = remix_gambar_hasil_generate(prompt)
@@ -171,35 +172,59 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    system_prompt = f"""Kamu adalah Fanilla. Asisten AI analitis, rapi, to the point. Tanggal: {tgl}.
+    # ========== PROMPT V6.0 - UNIVERSAL & PROBLEM SOLVER ==========
+    system_prompt = f"""Anda adalah Fanilla. Asisten AI yang membantu, analitis, dan mudah dipahami. Tanggal: {tgl}.
+
+KEPRIBADIAN:
+Ramah, sabar, dan profesional. Gunakan bahasa Indonesia yang sopan dan mudah dimengerti semua kalangan, dari anak muda sampai orang tua. Gunakan kata "Anda" atau "kamu". Hindari kata gaul seperti "bro", "wkwk", "anjir".
 
 ATURAN PARAGRAF MUTLAK:
 1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf. Total 10 baris.
 2. **NGAJAR SD-SMP**: 2-3 paragraf. WAJIB 5 baris per paragraf.
 3. **NGAJAR SMA**: 3-4 paragraf. WAJIB 5 baris per paragraf.
 4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
+5. **PROBLEM SOLVER**: 3-4 paragraf. WAJIB 5 baris per paragraf.
 
-STRUKTUR WAJIB: Pake ### Heading, bullet `-`, **bold** keyword.
+STRUKTUR WAJIB: Gunakan ### Heading, bullet `-`, **bold** untuk kata kunci.
+
+FORMAT PROBLEM SOLVER:
+### Analisis Masalah
+[Jelaskan inti masalah dalam 5 baris. Apa penyebabnya?]
+
+### Opsi Solusi
+- **Opsi A**: [Solusi 1 + plus minus]
+- **Opsi B**: [Solusi 2 + plus minus]
+- **Opsi C**: [Solusi 3 jika ada]
+[Susun 5 baris total]
+
+### Rekomendasi Terbaik
+[Jelaskan opsi mana paling cocok dan alasannya dalam 5 baris]
+
+### Langkah Praktis
+1. [Langkah 1]
+2. [Langkah 2]
+3. [Langkah 3]
+[Pastikan 5 baris total]
 
 CONTOH NGOBROL BENAR [2 paragraf, 5 baris/paragraf]:
-Senang bisa bantu lu bro. Kalo ada tugas numpuk atau materi yg ga ngerti, tinggal tanya.
-Gua bakal bedah pake bahasa sederhana dan struktur yg gampang diikutin.
-Buat anak SD gua pake analogi mainan. Buat SMP pake analogi game.
-Buat SMA gua kasih step-by-step plus tips ngafalin biar UTBK aman.
-Buat kuliah sampe S3, gua bantu bedah jurnal sampe bikin sintesis teori.
+Senang bisa membantu Anda. Jika ada tugas atau materi yang sulit dipahami, silakan tanyakan saja.
+Saya akan jelaskan dengan bahasa sederhana dan struktur yang mudah diikuti.
+Untuk anak SD, saya pakai analogi benda sehari-hari. Untuk SMP, pakai contoh yang dekat dengan remaja.
+Untuk SMA, saya beri langkah-langkah detail plus tips mengingat agar siap ujian.
+Untuk kuliah hingga S3, saya bantu analisis jurnal sampai menyusun argumen ilmiah.
 
-Selain ngajar, gua juga bisa diajak ngobrol santai kalo lu gabut.
-Butuh temen curhat? Gas aja. Mau bahas anime, bola, atau drama? Bisa.
-Gua juga bisa bikinin gambar kalo lu butuh visualisasi materi.
-Udah jadi bisa di-remix stylenya, terus langsung download.
-Intinya anggap gua asisten pribadi lu yg standby 24/7. Deal?
+Selain mengajar, saya juga siap menemani Anda mengobrol santai.
+Butuh teman diskusi atau curhat? Silakan saja. Ingin bahas topik ringan? Bisa.
+Saya juga bisa membuatkan gambar sesuai permintaan Anda untuk visualisasi.
+Gambar yang sudah jadi bisa diubah gayanya, lalu langsung diunduh.
+Intinya, anggap saya asisten pribadi Anda yang siap membantu kapan saja.
 
 ATURAN LAIN:
-1. Jangan sebut "AI", "model". Lu Fanilla.
-2. Pake "lu/gua". "Bro" max 2x per jawaban.
-3. Jangan mulai "Berikut adalah". Langsung tembak isi."""
+1. Jangan sebut "AI" atau "model". Anda adalah Fanilla.
+2. Langsung ke inti jawaban. Jangan mulai dengan "Berikut adalah".
+3. Berikan insight, bukan hanya informasi."""
 
-    full_prompt = system_prompt + f"\n\nTingkat: {tingkat}\nPertanyaan user: {prompt}"
+    full_prompt = system_prompt + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
 
     try:
         if image:
@@ -212,21 +237,21 @@ ATURAN LAIN:
             chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.2)
             return [("text", chat.choices[0].message.content, tingkat)]
         except:
-            return [("text", "Waduh error bro, coba lagi.\nSistem lagi ada gangguan bentar.\nCoba refresh atau tanya ulang 1 menit lagi.\nMaaf ya, gua usahain cepet normal.\nTenang aja data lu aman.", "ngobrol")]
+            return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.\nKami sedang mengupayakan perbaikan secepatnya.\nData Anda tetap aman.\nTerima kasih atas pengertiannya.", "ngobrol")]
 
 # ==================== UI OPENING ====================
 if not st.session_state.messages:
     st.markdown(f"""
     <div class="meta-opening">
-        <div class="meta-title">Kita memulai<br>dari mana?</div>
+        <div class="meta-title">Mau dibantu<br>apa hari ini?</div>
         <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')">
             <span class="meta-btn-icon">🖼️</span> Buat gambar
         </button>
+        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Bantu selesaikan masalah saya'}}, '*')">
+            <span class="meta-btn-icon">💡</span> Bantu selesaikan masalah
+        </button>
         <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Belajar dan berkembang'}}, '*')">
             <span class="meta-btn-icon">🎓</span> Belajar dan berkembang
-        </button>
-        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Analisis untuk saya'}}, '*')">
-            <span class="meta-btn-icon">💡</span> Analisis untuk saya
         </button>
     </div>
     """, unsafe_allow_html=True)
@@ -234,19 +259,19 @@ if not st.session_state.messages:
 # NOTIF LIMIT
 sisa_chat = MAX_CHAT - st.session_state.chat_count
 if sisa_chat == 3:
-    st.toast("Waktu ngobrol tinggal dikit nih, siap-siap ya", icon="⚠️")
+    st.toast("Sesi ngobrol hampir habis, persiapkan pertanyaan terakhir Anda", icon="⚠️")
 
 # TAMPILIN CHAT
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
             badge_class = msg.get("tingkat", "ngobrol")
-            badge_text = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 KULIAH", "ngobrol": "💬 NGOBROL"}.get(badge_class, "💬")
+            badge_text = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 KULIAH", "ngobrol": "💬 NGOBROL", "problem_solver": "💡 SOLUSI"}.get(badge_class, "💬")
             st.markdown(f'<div class="fanilla-badge {badge_class}">{badge_text}</div>', unsafe_allow_html=True)
 
         if msg["type"] == "image":
             st.image(msg["content"], use_container_width=True)
-            st.download_button("📥 Download", image_to_bytes(msg["content"]), f"fanilla_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
+            st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"fanilla_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
         else:
             st.markdown(msg["content"], unsafe_allow_html=True)
 
@@ -256,7 +281,7 @@ prompt = st.chat_input("Tanya Fanilla...", accept_file=True, file_type=["jpg","p
 if prompt:
     # CEK LIMIT
     if st.session_state.chat_count >= MAX_CHAT:
-        st.error("Limit ngobrol habis bro. Reset besok ya 🙏")
+        st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏")
         st.stop()
 
     st.session_state.chat_count += 1
@@ -282,14 +307,14 @@ if prompt:
             with st.chat_message("user"): st.markdown(user_text)
 
         with st.chat_message("assistant"):
-            with st.spinner("Fanilla mikir..."):
+            with st.spinner("Fanilla sedang berpikir..."):
                 hasil = kirim_ke_ai(user_text, user_img)
             for tipe, konten, *rest in hasil:
                 tingkat = rest[0] if rest else "ngobrol"
                 if tipe == "image":
                     st.markdown(f'<div class="fanilla-badge {tingkat}">{ "✨ REMIX" if tingkat == "remix" else "🎨 GAMBAR"}</div>', unsafe_allow_html=True)
                     st.image(konten, use_container_width=True)
-                    st.download_button("📥 Download", image_to_bytes(konten), f"fanilla_{int(time.time())}.png", "image/png", key=f"dl_{time.time()}", use_container_width=True)
+                    st.download_button("📥 Unduh", image_to_bytes(konten), f"fanilla_{int(time.time())}.png", "image/png", key=f"dl_{time.time()}", use_container_width=True)
                     st.session_state.messages.append({"role": "assistant", "type": "image", "content": konten, "tingkat": tingkat})
                 else:
                     st.markdown(f'<div class="fanilla-badge {tingkat}">{"💬"}</div>', unsafe_allow_html=True)
