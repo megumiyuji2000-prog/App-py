@@ -39,9 +39,14 @@ st.markdown(f"""
 html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}
 .stApp,.main{{background-color:{T['bg']}}}.block-container{{padding-top:4rem!important;padding-bottom:120px!important;max-width:42rem!important}}
 .orion-logo{{position:fixed;top:18px;right:18px;z-index:999;width:36px;height:36px}}.orion-logo img{{border-radius:8px}}
-.hamburger-btn{{position:fixed;top:18px;left:18px;z-index:1000;width:36px;height:36px;background:{T['chat_bg']};border:1px solid {T['border']};border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}}
-.hamburger-btn:hover{{background:{T['user_bg']}}}.hamburger-icon{{width:18px;height:2px;background:{T['text']};position:relative}}
-.hamburger-icon::before,.hamburger-icon::after{{content:'';position:absolute;width:18px;height:2px;background:{T['text']};left:0}}.hamburger-icon::before{{top:-5px}}.hamburger-icon::after{{top:5px}}
+.hamburger-btn{{position:fixed;top:18px;left:18px;z-index:1002;width:36px;height:36px;background:{T['chat_bg']};border:1px solid {T['border']};border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all.3s}}
+.hamburger-btn:hover{{background:{T['user_bg']}}}
+.hamburger-icon{{width:18px;height:2px;background:{T['text']};position:relative;transition:all.3s}}
+.hamburger-icon::before,.hamburger-icon::after{{content:'';position:absolute;width:18px;height:2px;background:{T['text']};left:0;transition:all.3s}}
+.hamburger-icon::before{{top:-5px}}.hamburger-icon::after{{top:5px}}
+.hamburger-btn.open.hamburger-icon{{background:transparent}}
+.hamburger-btn.open.hamburger-icon::before{{top:0;transform:rotate(45deg)}}
+.hamburger-btn.open.hamburger-icon::after{{top:0;transform:rotate(-45deg)}}
 .chat-title{{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:999;color:{T['text']};font-weight:600;font-size:.95rem;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .sidebar{{position:fixed;top:0;left:-300px;width:280px;height:100vh;background:{T['sidebar']};border-right:1px solid {T['border']};z-index:1001;transition:left.3s ease;overflow-y:auto;padding:70px 16px 20px}}
 .sidebar.open{{left:0}}.sidebar-overlay{{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.5);z-index:1000;display:none}}.sidebar-overlay.show{{display:block}}
@@ -63,6 +68,7 @@ html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,heade
 [data-testid="stChatMessageContent"] h3{{font-size:1rem!important;font-weight:600!important;margin:14px 0 6px 0!important;color:{T['text']}!important}}
 [data-testid="stChatMessageContent"] ul{{margin:6px 0!important;padding-left:18px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:4px!important}}
 [data-testid="stChatMessageContent"] strong{{color:#7C3AED!important;font-weight:600!important}}
+[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:underline!important}}
 .orion-toast{{position:fixed;top:70px;right:20px;z-index:9999;background:{T['chat_bg']};color:{T['text']};padding:12px 16px;border-radius:12px;border:1px solid {T['border']};box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;gap:12px;max-width:320px;animation:slideIn.3s ease}}
 .orion-toast-close{{background:none;border:none;color:{T['badge_text']};font-size:18px;cursor:pointer;padding:0 4px}}
 @keyframes slideIn{{from{{transform:translateX(100%);opacity:0}}to{{transform:translateX(0);opacity:1}}}}
@@ -91,13 +97,12 @@ current_chat = st.session_state.all_chats[st.session_state.current_chat_id]
 
 col1, col2 = st.columns([1, 20])
 with col1:
-    if st.button("≡", key="hamburger", help="Menu"): toggle_sidebar(); st.rerun()
+    if st.button("←" if st.session_state.sidebar_open else "≡", key="hamburger", help="Menu"): toggle_sidebar(); st.rerun()
 st.markdown(f'<div class="chat-title">{current_chat["title"]}</div>', unsafe_allow_html=True)
 
 if st.session_state.sidebar_open:
     st.markdown(f"""<div class="sidebar-overlay show" onclick="window.parent.postMessage({{type: 'streamlit:closeSidebar'}}, '*')"></div><div class="sidebar open"><div class="sidebar-item" onclick="window.parent.postMessage({{type: 'streamlit:newChat'}}, '*')"><span>✏️</span> Obrolan baru</div><div class="sidebar-divider"></div><div class="sidebar-item"><span>✨</span> Vibes</div><div class="sidebar-item"><span>👓</span> Kacamata</div><div class="sidebar-item"><span>🖼️</span> Media</div><div class="sidebar-item"><span>🔔</span> Notifikasi</div><div class="sidebar-divider"></div><div class="sidebar-section">Obrolan</div>""", unsafe_allow_html=True)
     for cid, chat in st.session_state.all_chats.items():
-        active = "active" if cid == st.session_state.current_chat_id else ""
         if st.button(chat['title'], key=f"chat_{cid}", use_container_width=True): switch_chat(cid); st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -113,9 +118,20 @@ def show_custom_toast(msg, icon="🎨"):
     ph = st.empty(); tid = f"toast_{int(time.time()*1000)}"
     ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span><button class="orion-toast-close" onclick="document.getElementById('{tid}').remove()">×</button></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},5000);</script>""", unsafe_allow_html=True)
 
+def butuh_link_produk(text):
+    t = text.lower()
+    kata_produk = ["rusak","copot","hilang","patah","pecah","habis","beli","ganti","butuh","cari","rekomendasi","yang bagus"]
+    kata_tutorial = ["cara","gimana","bagaimana","tutorial","langkah","memasak","memasang","memakai","mencopot","menggunakan"]
+    return any(k in t for k in kata_produk) and not any(k in t for k in kata_tutorial)
+
+def extract_keyword_produk(text):
+    stop = ["saya","aku","gue","punya","ini","itu","yang","kok","sih","dong","ya"]
+    words = re.findall(r'\b\w+\b', text.lower())
+    return " ".join([w for w in words if w not in stop and len(w) > 2][:3])
+
 def deteksi_tingkat(t):
     t = t.lower()
-    if any(k in t for k in ["solusi","pecahkan","selesaikan","masalah","problem","gimana caranya","bantu atasi","jalan keluar","saran","bingung","pusing"]): return "problem_solver"
+    if any(k in t for k in ["solusi","pecahkan","selesaikan","masalah","problem","gimana caranya","bantu atasi","jalan keluar","saran","bingung","pusing","rusak","copot","hilang"]): return "problem_solver"
     if any(k in t for k in ["s3","disertasi","rbv","dynamic capabilities","transformer","freire","dekonstruksi","backpropagation","doktoral"]): return "kuliah"
     if any(k in t for k in ["ubah jadi","jadiin","remix","ganti style","versi","ganti jadi"]) and st.session_state.last_generated_prompt: return "remix"
     if any(k in t for k in ["gambar","bikin","lukis","draw","buatin","generate"]): return "image"
@@ -146,43 +162,42 @@ def kirim_ke_ai(prompt, image=None):
         img, err = generate_gambar(prompt); return [("image", img, tingkat)] if img else [("text", f"Gagal membuat gambar: {err}", "ngobrol")]
     if tingkat == "remix":
         img, err = remix_gambar_hasil_generate(prompt); return [("image", img, "remix")] if img else [("text", f"Gagal remix: {err}", "ngobrol")]
+
+    perlu_link = butuh_link_produk(prompt)
+    keyword = extract_keyword_produk(prompt) if perlu_link else ""
+
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
+    link_instruksi = f"""
+PENTING: User butuh barang pengganti. Setelah kasih solusi, tambahkan:
+### Rekomendasi Produk
+- **Shopee**: https://shopee.co.id/search?keyword={urllib.parse.quote(keyword)}
+- **Tokopedia**: https://www.tokopedia.com/search?st=product&q={urllib.parse.quote(keyword)}
+Jelaskan kenapa barang ini cocok.
+""" if perlu_link else "JANGAN kasih link produk. User hanya butuh tutorial."
+
     sys_p = f"""Anda adalah Orion. Asisten AI cerdas yang membantu menyelesaikan masalah apa pun. Tanggal: {tgl}.
 
 KEPRIBADIAN: Profesional, empatik, dan solutif. Gunakan bahasa Indonesia yang sopan, jelas, dan mudah dipahami semua kalangan. Gunakan kata "Anda" atau "kamu".
 
-ATURAN PARAGRAF MUTLAK:
-1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf.
-2. **NGAJAR SD-SMP**: 2-3 paragraf. WAJIB 5 baris per paragraf.
-3. **NGAJAR SMA**: 3-4 paragraf. WAJIB 5 baris per paragraf.
-4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
-5. **PROBLEM SOLVER**: 3-4 paragraf. WAJIB 5 baris per paragraf.
-
-FORMAT PROBLEM SOLVER WAJIB:
+FORMAT PROBLEM SOLVER:
 Basa basi-
-[Baris 1: Empati ke masalah user]
-[Baris 2: Validasi bahwa masalahnya wajar]
-[Baris 3: Kasih harapan bahwa ada jalan keluar]
-[Baris 4: Tegaskan Orion akan bantu step by step]
-[Baris 5: Transisi ke solusi]
+[Tunjukkan empati dan validasi masalah user. Beri harapan bahwa ada solusi. Tegaskan Orion akan bantu step by step]
 
 Oke jadi begini caranya
-1. [Langkah 1 + penjelasan singkat]
-   [Contoh konkret langkah 1]
-2. [Langkah 2 + penjelasan singkat]
-   [Contoh konkret langkah 2]
-3. [Langkah 3 + penjelasan singkat]
-   [Contoh konkret langkah 3]
+1. [Langkah 1 + penjelasan detail + contoh konkret]
+2. [Langkah 2 + penjelasan detail + contoh konkret]
+3. [Langkah 3 + penjelasan detail + contoh konkret]
 
 Jadi gitu cara mengatasinya
-[Baris 1: Rangkum solusi inti]
-[Baris 2: Tekankan manfaat jika diterapkan]
-[Baris 3: Motivasi bahwa user pasti bisa]
-[Baris 4: Tawarkan bantuan lanjutan jika masih bingung]
-[Baris 5: Sudah paham kan?]
+[Rangkum solusi inti. Tekankan manfaat. Motivasi user. Tawarkan bantuan lanjutan. Tutup dengan "Sudah paham kan?"]
 
-STRUKTUR LAIN: Pake ### Heading, bullet `-`, **bold** untuk kata kunci.
-ATURAN LAIN: 1. Jangan sebut "AI" atau "model". Anda adalah Orion. 2. Langsung ke inti jawaban. Jangan bertele-tele."""
+{link_instruksi}
+
+ATURAN LAIN:
+1. Jangan sebut "AI" atau "model". Anda adalah Orion.
+2. Untuk ngajar/ngobrol, jawab natural tanpa batasan baris.
+3. Gunakan ### Heading, bullet `-`, **bold** untuk struktur.
+4. Jika ada link produk, pastikan format markdown: [Nama Toko](url)"""
     full_p = sys_p + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
     try:
         res = gemini_model.generate_content([full_p, image] if image else full_p); return [("text", res.text, tingkat)]
@@ -190,7 +205,7 @@ ATURAN LAIN: 1. Jangan sebut "AI" atau "model". Anda adalah Orion. 2. Langsung k
         try:
             chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_p}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.3)
             return [("text", chat.choices[0].message.content, tingkat)]
-        except: return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.\nKami sedang mengupayakan perbaikan secepatnya.\nData Anda tetap aman.\nTerima kasih atas pengertiannya.", "ngobrol")]
+        except: return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.", "ngobrol")]
 
 if not current_chat['messages']:
     st.markdown(f"""<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Bantu selesaikan masalah saya'}}, '*')"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Belajar dan berkembang'}}, '*')"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>""", unsafe_allow_html=True)
