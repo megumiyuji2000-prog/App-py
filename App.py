@@ -8,7 +8,7 @@ import time
 
 st.set_page_config(
     page_title="Fanilla AI",
-    page_icon="logo.png", # ← Favicon tab browser
+    page_icon="logo.png",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -18,23 +18,23 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
- .stApp,.main { background-color: #0A0A0B; }
- .block-container { padding-top: 2rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
- .fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; letter-spacing: -0.02em; }
- .fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 3rem; line-height: 1.5; }
- .stChatMessage { background-color: transparent!important; padding: 0.75rem 0!important; margin: 0!important; }
+.stApp,.main { background-color: #0A0A0B; }
+.block-container { padding-top: 2rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
+.fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; letter-spacing: -0.02em; }
+.fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 3rem; line-height: 1.5; }
+.stChatMessage { background-color: transparent!important; padding: 0.75rem 0!important; margin: 0!important; }
     [data-testid="stChatMessageContent"] { background-color: #18181B!important; border-radius: 18px!important; padding: 12px 16px!important; color: #E4E4E7!important; line-height: 1.65; border: 1px solid #27272A; font-size: 0.95rem; }
- .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; border: 1px solid #3F3F46; }
- .stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(10,10,11,0) 0%, #0A0A0B 30%)!important; padding: 1rem 1rem 1.5rem 1rem!important; max-width: 48rem!important; margin: 0 auto!important; backdrop-filter: blur(8px); }
- .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
- .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
- .stChatInput input::placeholder { color: #71717A!important; }
- .stImage img { border-radius: 14px!important; border: 1px solid #27272A; margin: 8px 0; }
- .stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
- .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
- .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
- .gemini { background-color: #1e40af; color: #dbeafe; }
- .llama { background-color: #7c2d12; color: #ffedd5; }
+.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; border: 1px solid #3F3F46; }
+.stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(10,10,11,0) 0%, #0A0A0B 30%)!important; padding: 1rem 1rem 1.5rem 1rem!important; max-width: 48rem!important; margin: 0 auto!important; backdrop-filter: blur(8px); }
+.stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
+.stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
+.stChatInput input::placeholder { color: #71717A!important; }
+.stImage img { border-radius: 14px!important; border: 1px solid #27272A; margin: 8px 0; }
+.stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
+.fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
+.model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
+.gemini { background-color: #1e40af; color: #dbeafe; }
+.llama { background-color: #7c2d12; color: #ffedd5; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -144,10 +144,15 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    # INI DIA LOGO FNL LU BUNG - TAMBAHIN 3 BARIS INI
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.image("logo.png", width=150) # Gedein ke 200 kalo mau makin gokil
+    # LOGO FNL TANPA KOTAK - UDAH BENER BUNG
+    st.markdown(
+        """
+        <div style='text-align: center; margin-bottom: 1.5rem; margin-top: -1rem;'>
+            <img src='logo.png' width='130' style='border: none; background: transparent;'>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     st.markdown('<div class="fanilla-title">Fanilla AI</div>', unsafe_allow_html=True)
     st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 😎</div>', unsafe_allow_html=True)
