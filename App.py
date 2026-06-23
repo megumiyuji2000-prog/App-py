@@ -29,7 +29,7 @@ except:
 if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_count" not in st.session_state: st.session_state.chat_count = 0
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
-if "audio_processed" not in st.session_state: st.session_state.audio_processed = False
+if "audio_processed_id" not in st.session_state: st.session_state.audio_processed_id = None
 
 MAX_CHAT = 25
 jakarta_tz = pytz.timezone('Asia/Jakarta')
@@ -40,9 +40,9 @@ st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}
-.stApp,.main{{background-color:{T['bg']}}}.block-container{{padding-top:1rem!important;padding-bottom:140px!important;max-width:48rem!important}}
+.stApp,.main{{background-color:{T['bg']}}}.block-container{{padding-top:1rem!important;padding-bottom:200px!important;max-width:48rem!important}}
 .orion-logo{{position:fixed;top:16px;right:16px;z-index:999;width:32px;height:32px}}.orion-logo img{{border-radius:8px}}
-.stButton>button[data-testid="scroll-btn"]{{position:fixed!important;bottom:88px!important;right:20px!important;width:36px!important;height:36px!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:50%!important;z-index:998!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 8px rgba(0,0,0,.25)!important;padding:0!important;min-height:36px!important}}
+.stButton>button[data-testid="scroll-btn"]{{position:fixed!important;bottom:150px!important;right:20px!important;width:36px!important;height:36px!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:50%!important;z-index:998!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 8px rgba(0,0,0,.25)!important;padding:0!important;min-height:36px!important}}
 .stButton>button[data-testid="scroll-btn"]:hover{{background:{T['user_bg']}!important}}.stButton>button[data-testid="scroll-btn"] p{{font-size:18px!important;margin:0!important;color:{T['text']}!important}}
 .meta-opening{{margin-top:28vh;margin-bottom:2rem}}.meta-title{{font-size:2.25rem;font-weight:700;color:{T['text']};margin-bottom:2.5rem;line-height:1.1;letter-spacing:-0.02em}}
 .meta-btn{{display:flex;width:100%;text-align:left;padding:16px 20px;margin-bottom:14px;background-color:{T['chat_bg']};border:1px solid {T['border']};border-radius:28px;color:{T['text']};font-size:1rem;cursor:pointer;transition:all.2s;align-items:center}}
@@ -52,7 +52,7 @@ html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,heade
 .stChatMessage[data-testid*="assistant"] [data-testid="stChatMessageAvatar"]{{background-color:#F97316!important}}
 [data-testid="stChatMessageContent"]{{background-color:{T['chat_bg']}!important;border-radius:20px!important;padding:16px 20px!important;color:{T['text']}!important;border:1px solid {T['border']};line-height:1.7;font-size:0.95rem;margin-left:8px!important}}
 .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bg']}!important}}
-.stChatInput{{position:fixed!important;bottom:0!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem 1rem 1rem!important;background:{T['bg']}!important;z-index:997!important}}
+.stChatInput{{position:fixed!important;bottom:0!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem 1rem 1rem!important;background:{T['bg']}!important;z-index:1001!important}}
 .stChatInput>div{{background-color:{T['bg']}!important;border:1.5px solid {T['primary']}!important;border-radius:28px!important;padding:2px!important}}
 .orion-badge{{display:inline-block;font-size:.7rem;padding:4px 10px;border-radius:12px;margin-bottom:10px;font-weight:600;background-color:{T['badge_bg']};color:{T['badge_text']};border:1px solid {T['border']}}}
 [data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}
@@ -62,6 +62,7 @@ html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,heade
 .orion-toast{{position:fixed;top:70px;right:20px;z-index:9999;background:{T['chat_bg']};color:{T['text']};padding:12px 16px;border-radius:12px;border:1px solid {T['border']};box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;gap:12px;max-width:320px;animation:slideIn.3s ease}}
 .tts-btn{{background:{T['badge_bg']};border:1px solid {T['border']};border-radius:8px;padding:6px 12px;margin-top:8px;cursor:pointer;font-size:0.85rem;color:{T['badge_text']};display:inline-flex;align-items:center;gap:6px}}
 .tts-btn:hover{{background:{T['user_bg']};color:{T['text']}}}
+[data-testid="stAudioInput"]{{margin-bottom:10px!important}}
 @keyframes slideIn{{from{{transform:translateX(100%);opacity:0}}to{{transform:translateX(0);opacity:1}}}}
 </style>
 """, unsafe_allow_html=True)
@@ -87,20 +88,18 @@ def transcribe_audio(audio_bytes):
             model="whisper-large-v3",
             language="id",
             response_format="text",
-            temperature=0.0  # Biar gak ngarang
+            temperature=0.0
         )
         text = transcription.strip()
-        # Filter hasil aneh
         if len(text) < 3 or text.lower() in ["dan abroh", "terima kasih", "you", ""]: 
             show_custom_toast("Suara gak kedeteksi jelas, coba lagi", "⚠️")
             return ""
         return text
     except Exception as e:
-        show_custom_toast(f"Gagal transkrip: {str(e)[:40]}", "❌"); return ""
+        show_custom_toast(f"Gagal transkrip", "❌"); return ""
 
 def text_to_speech(text):
-    if not TTS_AVAILABLE:
-        show_custom_toast("TTS tidak tersedia", "❌"); return None
+    if not TTS_AVAILABLE: return None
     try:
         text_clean = re.sub(r'[#*`\-]', '', text)[:500]
         tts = gTTS(text=text_clean, lang='id', slow=False)
@@ -108,8 +107,7 @@ def text_to_speech(text):
         tts.write_to_fp(fp)
         fp.seek(0)
         return fp
-    except Exception as e:
-        show_custom_toast("TTS gagal dibuat", "❌"); return None
+    except: return None
 
 def butuh_link_produk(text):
     t = text.lower()
@@ -226,16 +224,23 @@ if len(st.session_state.messages) > 3:
         if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
             st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
 
-# FIX: Pake flag biar gak loop + clear audio setelah proses
+# VOICE INPUT - FIX: Proses langsung + kirim ke AI
 audio_value = st.audio_input("Rekam suara", key=f"audio_recorder_{st.session_state.chat_count}")
-if audio_value and not st.session_state.audio_processed:
-    st.session_state.audio_processed = True
-    voice_text = transcribe_audio(audio_value.getvalue())
-    if voice_text:
-        st.session_state.messages.append({"role": "user", "type": "text", "content": voice_text})
-        st.rerun()
-else:
-    st.session_state.audio_processed = False
+if audio_value:
+    current_audio_id = id(audio_value)
+    if st.session_state.audio_processed_id != current_audio_id:
+        st.session_state.audio_processed_id = current_audio_id
+        voice_text = transcribe_audio(audio_value.getvalue())
+        if voice_text:
+            if st.session_state.chat_count >= MAX_CHAT: 
+                st.error("Sesi ngobrol hari ini sudah habis"); st.stop()
+            st.session_state.chat_count += 1
+            st.session_state.messages.append({"role": "user", "type": "text", "content": voice_text})
+            hasil = kirim_ke_ai(voice_text, None)
+            for tipe, konten, *rest in hasil:
+                tingkat = rest[0] if rest else "ngobrol"
+                st.session_state.messages.append({"role": "assistant", "type": tipe, "content": konten, "tingkat": tingkat})
+            st.rerun()
 
 prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
