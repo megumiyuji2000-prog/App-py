@@ -17,21 +17,21 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
- .stApp,.main { background-color: #0A0A0B; }
- .block-container { padding-top: 1rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
- .fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; }
- .fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 1.5rem; }
+.stApp,.main { background-color: #0A0A0B; }
+.block-container { padding-top: 1rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
+.fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; }
+.fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 1.5rem; }
     [data-testid="stChatMessageContent"] { background-color: #18181B!important; border-radius: 18px!important; padding: 12px 16px!important; color: #E4E4E7!important; border: 1px solid #27272A; line-height: 1.65; }
- .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; }
- .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; }
- .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
- .sd { background-color: #166534; color: #dcfce7; }
- .smp { background-color: #854d0e; color: #fef3c7; }
- .sma { background-color: #9a3412; color: #ffedd5; }
- .kuliah { background-color: #991b1b; color: #fee2e2; }
- .image { background-color: #059669; color: #d1fae5; }
- .remix { background-color: #be185d; color: #fce7f3; }
- .ngobrol { background-color: #1e40af; color: #dbeafe; }
+.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; }
+.stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; }
+.fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
+.sd { background-color: #166534; color: #dcfce7; }
+.smp { background-color: #854d0e; color: #fef3c7; }
+.sma { background-color: #9a3412; color: #ffedd5; }
+.kuliah { background-color: #991b1b; color: #fee2e2; }
+.image { background-color: #059669; color: #d1fae5; }
+.remix { background-color: #be185d; color: #fce7f3; }
+.ngobrol { background-color: #1e40af; color: #dbeafe; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,13 +48,12 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
-# ==================== OTAK FANILLA - NGAJAR + NGOBROL ====================
+# ==================== OTAK FANILLA ====================
 def deteksi_tingkat(text):
     t = text.lower()
-    # PRIORITAS: REMIX DULU KALO ADA GAMBAR HASIL GENERATE
-    if any(k in t for k in ["ubah jadi", "jadiin", "remix", "ganti style", "versi"]) and st.session_state.last_generated_prompt:
+    if any(k in t for k in ["ubah jadi", "jadiin", "remix", "ganti style", "versi", "ganti jadi"]) and st.session_state.last_generated_prompt:
         return "remix"
-    if any(k in t for k in ["gambar", "bikin", "lukis", "draw", "buatin"]):
+    if any(k in t for k in ["gambar", "bikin", "lukis", "draw", "buatin", "generate"]):
         return "image"
     if any(k in t for k in ["sd","kelas 1","kelas 2","kelas 3","kelas 4","kelas 5","kelas 6","penjumlahan","perkalian","untuk anak"]): return "sd"
     if any(k in t for k in ["smp","kelas 7","kelas 8","kelas 9","aljabar","persamaan"]): return "smp"
@@ -64,15 +63,14 @@ def deteksi_tingkat(text):
 
 def generate_gambar(prompt):
     try:
-        st.toast("Fanilla lagi ngelukis...", icon="🎨")
-        # Simpen prompt buat remix nanti
+        st.toast("Fanilla lagi ngelukis... Maaf jika gambar kurang memuaskan atau bagus 🙏", icon="🎨")
         st.session_state.last_generated_prompt = prompt
         encoded = urllib.parse.quote(prompt[:200])
         url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
         r = requests.get(url, timeout=45)
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
-        return None, "Server lagi penuh"
+        return None, "Server lagi penuh bro"
     except Exception as e:
         return None, "Error bro, coba lagi"
 
@@ -82,10 +80,9 @@ def remix_gambar_hasil_generate(prompt_remix):
         return None, "Bikin gambar dulu bro baru bisa di-remix. Contoh: 'bikin gambar kucing'"
 
     try:
-        st.toast("Fanilla lagi nge-remix...", icon="✨")
-        # Gabungin prompt lama + prompt baru
+        st.toast("Fanilla lagi nge-remix... Maaf jika gambar kurang memuaskan atau bagus 🙏", icon="✨")
         full_prompt = f"{st.session_state.last_generated_prompt}, {prompt_remix}"
-        st.session_state.last_generated_prompt = full_prompt # Update buat remix lagi
+        st.session_state.last_generated_prompt = full_prompt
 
         encoded = urllib.parse.quote(full_prompt[:200])
         url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
@@ -104,7 +101,6 @@ def image_to_bytes(img):
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
 
-    # FITUR GAMBAR
     if tingkat == "image":
         img, err = generate_gambar(prompt)
         if img: return [("image", img, tingkat)]
@@ -142,7 +138,7 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
     full_prompt = system_prompt + f"\n\nTingkat terdeteksi: {tingkat}\nPertanyaan user: {prompt}"
 
     try:
-        if image: # Ini cuma buat baca soal, bukan di-remix
+        if image: # Cuma buat baca soal, ga di-remix
             res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=False)
         else:
             res = st.session_state.gemini_chat.send_message(full_prompt, stream=False)
@@ -172,7 +168,7 @@ for i, msg in enumerate(st.session_state.messages):
         else:
             st.markdown(msg["content"])
 
-# INPUT - CUMA BACA FOTO SOAL, GA BISA REMIX FOTO UPLOAD
+# INPUT - UPLOAD CUMA BUAT BACA SOAL
 prompt = st.chat_input("Nanya soal / ngobrol / bikin gambar...", accept_file=True, file_type=["jpg","png","jpeg"])
 
 if prompt:
