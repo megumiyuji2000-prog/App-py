@@ -1,260 +1,184 @@
 import streamlit as st
 import google.generativeai as genai
+from groq import Groq
 from PIL import Image
 from datetime import datetime
 import pytz
-from duckduckgo_search import DDGS
-import re
+import time
 
 st.set_page_config(page_title="Fanilla AI", page_icon="🎓", layout="centered", initial_sidebar_state="collapsed")
 
-# ==================== CSS META AI CLONE 98% ====================
+# ==================== CSS FANILLA GAUL ====================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
-  .stApp,.main { background-color: #0C0C0C; }
-  .block-container {
-        padding-top: 2rem!important;
-        padding-bottom: 8rem!important;
-        max-width: 48rem!important;
-    }
-  .meta-title {
-        text-align: center;
-        font-size: 2.25rem;
-        font-weight: 600;
-        background: linear-gradient(90deg, #60A5FA 0%, #A78BFA 50%, #F472B6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.25rem;
-        letter-spacing: -0.02em;
-    }
-  .meta-subtitle {
-        text-align: center;
-        color: #9CA3AF;
-        font-size: 0.95rem;
-        margin-bottom: 3rem;
-    }
-  .stChatMessage {
-        background-color: transparent!important;
-        padding: 0.75rem 0!important;
-        margin: 0!important;
-    }
-    [data-testid="stChatMessageContent"] {
-        background-color: #1A1A1A!important;
-        border-radius: 18px!important;
-        padding: 12px 16px!important;
-        color: #E4E4E7!important;
-        line-height: 1.65;
-        border: 1px solid #262626;
-        font-size: 0.95rem;
-    }
-  .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] {
-        background-color: #262626!important;
-        border: 1px solid #404040;
-    }
-  .stChatInput {
-        position: fixed!important;
-        bottom: 0!important;
-        left: 0!important;
-        right: 0!important;
-        background: linear-gradient(180deg, rgba(12,12,12,0) 0%, #0C0C0C 30%)!important;
-        padding: 1rem 1rem 1.5rem 1rem!important;
-        max-width: 48rem!important;
-        margin: 0 auto!important;
-        backdrop-filter: blur(8px);
-    }
-  .stChatInput > div {
-        background-color: #1A1A1A!important;
-        border: 1px solid #333333!important;
-        border-radius: 26px!important;
-    }
+  .stApp,.main { background-color: #0A0A0B; }
+  .block-container { padding-top: 2rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
+  .fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; letter-spacing: -0.02em; }
+  .fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 3rem; line-height: 1.5; }
+  .stChatMessage { background-color: transparent!important; padding: 0.75rem 0!important; margin: 0!important; }
+    [data-testid="stChatMessageContent"] { background-color: #18181B!important; border-radius: 18px!important; padding: 12px 16px!important; color: #E4E4E7!important; line-height: 1.65; border: 1px solid #27272A; font-size: 0.95rem; }
+  .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; border: 1px solid #3F3F46; }
+  .stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(10,10,11,0) 0%, #0A0A0B 30%)!important; padding: 1rem 1rem 1.5rem 1rem!important; max-width: 48rem!important; margin: 0 auto!important; backdrop-filter: blur(8px); }
+  .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
   .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
-  .stChatInput input::placeholder { color: #737373!important; }
-  .stImage img { border-radius: 14px!important; border: 1px solid #262626; margin: 8px 0; }
-  .stToast { background-color: #1A1A1A!important; border: 1px solid #333333!important; border-radius: 12px!important; }
-  .mode-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 500; }
-  .mode-dosen { background-color: #1E40AF; color: #BFDBFE; }
-  .mode-teman { background-color: #166534; color: #BBF7D0; }
+  .stChatInput input::placeholder { color: #71717A!important; }
+  .stImage img { border-radius: 14px!important; border: 1px solid #27272A; margin: 8px 0; }
+  .stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
+  .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
+  .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
+  .gemini { background-color: #1e40af; color: #dbeafe; }
+  .llama { background-color: #7c2d12; color: #ffedd5; }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== INIT ====================
+# ==================== INIT MULTI-MODEL ====================
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except:
-    st.error("API Key belum diset bro.")
+    st.error("Waduh bro, API Key belum diset. Butuh GEMINI_API_KEY dan GROQ_API_KEY di Secrets.")
     st.stop()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "chat" not in st.session_state:
-    st.session_state.chat = model.start_chat(history=[])
+if "gemini_chat" not in st.session_state:
+    st.session_state.gemini_chat = gemini_model.start_chat(history=[])
+if "groq_history" not in st.session_state:
+    st.session_state.groq_history = []
 
-# ==================== DETEKSI MODE - FIXED ====================
-def search_web(query):
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(f"{query} penjelasan", max_results=2))
-            if results:
-                return "\n".join([f"- {r['body'][:200]}" for r in results])
-    except:
-        return ""
-    return ""
-
-def deteksi_mode(text, ada_gambar=False):
-    """FIXED: Regex aman, ga bikin crash"""
+# ==================== OTAK FANILLA GAUL MAX ====================
+def deteksi_tingkat(text):
     t = text.lower()
+    if any(k in t for k in ["sd","kelas 1","kelas 2","kelas 3","kelas 4","kelas 5","kelas 6","penjumlahan","perkalian"]): return "sd"
+    if any(k in t for k in ["smp","kelas 7","kelas 8","kelas 9","aljabar","persamaan"]): return "smp"
+    if any(k in t for k in ["sma","kelas 10","kelas 11","kelas 12","utbk","snbt","limit","turunan","integral"]): return "sma"
+    if any(k in t for k in ["kuliah","kalkulus","aljabar linear","statistik","matkul","universitas"]): return "kuliah"
+    return "ngobrol"
 
-    # 1. Gambar = auto Dosen
-    if ada_gambar:
-        return "dosen"
+def kirim_ke_ai(prompt, image=None):
+    tingkat = deteksi_tingkat(prompt)
+    tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    # 2. Kata kunci soal = Dosen
-    kata_soal = [
-        "berapa", "hitung", "kerjakan", "jawab", "soal", "rumus", "integral", "turunan",
-        "limit", "akar", "persamaan", "matriks", "jelaskan", "definisi", "sebutkan",
-        "apa itu", "kenapa", "bagaimana", "buktikan", "analisis", "utbk", "sbmptn",
-        "skripsi", "tesis", "disertasi", "jurnal", "nilai", "hasil"
-    ]
-    if any(k in t for k in kata_soal):
-        return "dosen"
+    # ========== PROMPT GAUL MAX - ANAK NONGKRONG ==========
+    system_prompt = f"""Lu itu Fanilla. Temen nongkrong yg pinter kebangetan. Bukan dosen, bukan AI. Tanggal {tgl}.
 
-    # 3. Deteksi angka/rumus - FIXED REGEX
+GAYA NGOMONG LU:
+1. SANTUY + GAUL ABIS. Pake: "Anjir", "Wkwk", "Bro", "Santuy", "Goks", "Mantap", "Gile", "Asli", "Btw", "Nah", "Oke jadi gini".
+2. EMPATI DULUAN. Kalo user nanya soal: "Waduh pusing ya? Santuy bro gua bantuin". Kalo ngobrol: "Wkwk sama bro".
+3. JANGAN SOK PINTER. Jelasi kayak ke temen nongkrong. Misal "Turunan itu gampangnya gini bro, bayangin lu lagi naik motor, nah kecepatannya tuh..."
+4. JANGAN SEBUT "AI", "MODEL", "ASISTEN". Lu itu Fanilla, temennya user.
+5. JANGAN NGASIH CERAMAH PANJANG. To the point tapi tetep asik.
+
+ATURAN JAWAB:
+- TK-SD: 10-16 baris. Bahasa bocil: "Jadi gini adek, 2+2 itu kayak lu punya 2 permen...". Pake analogi makanan/mainan.
+- SMP: 13-19 baris. Bahasa ABG: "Oke bro, aljabar tuh sebenernya gampang...". Pake analogi game/sosmed.
+- SMA: 17-23 baris. Bahasa anak SMA: "Anjir UTBK ya? Santuy, integral tuh kayak...". Format: 1. Konsep Gampangnya, 2. Step by Step, 3. Jawaban, 4. Tips Ngafalin.
+- Kuliah: 20-30 baris. Bahasa mahasiswa: "Wkwk matkul neraka nih. Oke gini bro...". Boleh agak teknis tapi tetep gaul.
+- Ngobrol biasa: 1-2 paragraf MAX. Pendek, empati, selipin joke dikit. Contoh: "Wkwk sama bro gua juga mager hari ini. Btw udah makan belum?"
+
+KALO ADA GAMBAR SOAL:
+Scan dulu, terus bilang "Oalah soal ini toh, santuy bro" terus jawab sesuai tingkat.
+
+INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
+
+    full_prompt = system_prompt + f"\n\nTingkat terdeteksi: {tingkat}\nPertanyaan user: {prompt}"
+
+    # ========== COBA GEMINI DULU ==========
     try:
-        if re.search(r"\d+\s*[+\-*/=]\s*\d+", text): # Aman
-            return "dosen"
-        if re.search(r"[a-zA-Z]\s*[\^]\s*\d+", text): # x^2
-            return "dosen"
-        if re.search(r"∫|√|∑|π", text): # Simbol MTK
-            return "dosen"
-    except:
-        pass
-
-    return "teman"
-
-def deteksi_level(text):
-    """Deteksi TK-S3 + target baris"""
-    t = text.lower()
-    if any(k in t for k in ["tk", "paud", "anak kecil"]): return "TK", 12
-    if any(k in t for k in ["sd", "kelas 1", "kelas 2", "kelas 3", "kelas 4", "kelas 5", "kelas 6"]): return "SD", 14
-    if any(k in t for k in ["smp", "kelas 7", "kelas 8", "kelas 9"]): return "SMP", 17
-    if any(k in t for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "utbk"]): return "SMA", 22
-    if any(k in t for k in ["s2", "tesis", "magister", "master"]): return "S2", 28
-    if any(k in t for k in ["s3", "phd", "disertasi", "doktor"]): return "S3", 30
-    if any(k in t for k in ["kuliah", "s1", "mahasiswa", "skripsi"]): return "S1", 26
-    if any(k in t for k in ["integral", "turunan", "limit", "diferensial", "buktikan"]): return "SMA", 22
-    if any(k in t for k in ["akar", "persamaan", "pecahan"]): return "SMP", 17
-    return "SMA", 20
-
-def jawab_fanilla(text, image=None):
-    mode = deteksi_mode(text, ada_gambar=image is not None)
-
-    if mode == "dosen":
-        level, max_baris = deteksi_level(text)
-
-        gaya = {
-            "TK": "Oke dek, kita pake cerita ya. Bayangin gini...",
-            "SD": "Baik, kita pake contoh yang ada di rumah aja. Gini...",
-            "SMP": "Oke bro, kita bedah bareng. Catat rumusnya dulu:",
-            "SMA": "Baik, kita analisis step-by-step. Pertama, identifikasi soalnya.",
-            "S1": "Secara akademis, perlu kita kaji komprehensif. Merujuk pada teori...",
-            "S2": "Jika ditelaah kritis, terdapat research gap. Coba bandingkan...",
-            "S3": "Untuk level doctoral, hipotesis ini perlu diuji. Novelty-nya terletak pada..."
-        }
-
-        with st.spinner("Buka buku referensi..."):
-            ref = search_web(text)
-            if ref:
-                text += f"\n\n[Referensi]:\n{ref}"
-
-        tz = pytz.timezone('Asia/Jakarta')
-        tgl = datetime.now(tz).strftime("%d %B %Y")
-
-        prompt = f"""Anda adalah Dosen Fanilla, pengajar 15 tahun TK-S3. Tanggal {tgl}.
-Anda BUKAN AI. Jangan sebut "AI/model/program".
-
-MODE: DOSEN - LEVEL {level}
-ATURAN:
-1. GAYA: {gaya[level]}
-2. PANJANG: WAJIB {max_baris-1} sampai {max_baris+1} baris. Minimal 2 paragraf, maksimal 4 paragraf.
-3. STRUKTUR: Pembuka 1 baris, Isi step-by-step, Penutup 1 baris motivasi.
-4. AKURAT 100%. MTK pake $LaTeX$: $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$
-5. Bahasa: Gaul tapi baku. "Nah bro, integral itu gini..." bukan "Anda harus"
-6. Jika gambar = lembar jawaban siswa. Koreksi.
-7. Penutup: "Paham ya bro?" / "Silakan dikembangkan." / "Semangat!"
-
-Soal: {text}"""
-
-        st.toast(f"Mode Dosen {level}", icon="🎓")
-
-    else: # MODE TEMAN
-        prompt = f"""Kamu adalah Fanilla AI, temen nongkrong yang pinter tapi santai.
-
-ATURAN MODE TEMAN:
-1. Bahasa: Gaul abis, informatif. Pake "lu", "gw", "anjir", "wkwk" boleh.
-2. PANJANG: Minimal 1 paragraf, MAKSIMAL 2 paragraf. Jangan panjang-panjang.
-3. Topik: Bebas. Ngobrol santai, curhat, game, anime.
-4. Jangan sok dosen. Jadi temen.
-5. Jangan sebut "AI/model".
-
-Chat: {text}"""
-
-        st.toast("Mode Teman", icon="😎")
-
-    try:
+        time.sleep(2)
+        st.toast("Fanilla lagi mikir...", icon="🎓")
         if image:
-            res = st.session_state.chat.send_message([prompt, image], stream=True)
+            res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=True)
         else:
-            res = st.session_state.chat.send_message(prompt, stream=True)
+            res = st.session_state.gemini_chat.send_message(full_prompt, stream=True)
 
         for chunk in res:
             if chunk.text:
-                yield chunk.text, mode
+                yield chunk.text, tingkat, "gemini"
+        return
+
     except Exception as e:
-        if "429" in str(e):
-            yield "Waduh kuota abis bro. Besok lagi ya jam 7 pagi.", mode
+        if "429" in str(e) or "quota" in str(e).lower():
+            # ========== FALLBACK LLAMA 3.3 ==========
+            if image:
+                yield "Anjir bro, Gemini gua lagi limit trus Llama ga bisa liat gambar 😭 Coba kirim soalnya diketik aja, atau tunggu besok jam 7 pagi ya. Maapkeun 🙏", tingkat, "error"
+                return
+
+            st.toast("Gemini capek, ganti Llama dulu...", icon="⚡")
+            try:
+                time.sleep(2)
+                st.session_state.groq_history.append({"role": "user", "content": full_prompt})
+
+                chat = groq_client.chat.completions.create(
+                    messages=st.session_state.groq_history,
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.8,
+                    max_tokens=2048,
+                    stream=True
+                )
+
+                full_response = ""
+                for chunk in chat:
+                    if chunk.choices[0].delta.content:
+                        text = chunk.choices[0].delta.content
+                        full_response += text
+                        yield text, tingkat, "llama"
+
+                st.session_state.groq_history.append({"role": "assistant", "content": full_response})
+                return
+
+            except Exception as e2:
+                yield f"Waduh bro, Llama juga tumbang 😭 Server lagi rame. Coba lagi 5 menit ya.", tingkat, "error"
+                return
         else:
-            yield "Error bro, coba lagi ya.", mode
+            yield f"Error anjir: {str(e)[:100]}. Coba refresh deh bro.", tingkat, "error"
+            return
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    st.markdown('<div class="meta-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="meta-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 📸</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fanilla-title">Fanilla AI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 😎</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        if msg.get("mode"):
-            badge = "mode-dosen" if msg["mode"] == "dosen" else "mode-teman"
-            label = "🎓 Mode Dosen" if msg["mode"] == "dosen" else "😎 Mode Teman"
-            st.markdown(f'<div class="mode-badge {badge}">{label}</div>', unsafe_allow_html=True)
+        if msg.get("tingkat") and msg["role"] == "assistant":
+            badge_map = {"sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 Kuliah", "ngobrol": "💬 Ngobrol"}
+            label = badge_map.get(msg["tingkat"], "💬 Ngobrol")
+            model_badge = f"<span class='model-badge {msg.get('model','gemini')}'>{msg.get('model','gemini').upper()}</span>"
+            st.markdown(f'<div class="fanilla-badge">{label}{model_badge}</div>', unsafe_allow_html=True)
 
         if msg["type"] == "image":
             st.image(msg["content"], caption=msg.get("caption"))
         else:
             st.markdown(msg["content"])
 
-prompt = st.chat_input("Tanya Fanilla...", accept_file=True, file_type=["jpg", "jpeg", "png"])
+prompt = st.chat_input("Nanya apa bro...", accept_file=True, file_type=["jpg", "jpeg", "png"])
 
 if prompt:
-    mode_aktif = "teman"
+    tingkat_aktif = "ngobrol"
+    model_aktif = "gemini"
+
     if prompt.get("files"):
         img = Image.open(prompt["files"][0])
-        txt = prompt.get("text", "Tolong koreksi soal ini dong.")
+        txt = prompt.get("text", "Bro jelasin soal di foto ini dong")
         st.session_state.messages.append({"role": "user", "content": img, "type": "image", "caption": txt})
         with st.chat_message("user"):
             st.image(img, caption=txt)
         with st.chat_message("assistant"):
             ph = st.empty()
             out = ""
-            for c, m in jawab_fanilla(txt, image=img):
+            for c, t, m in kirim_ke_ai(txt, image=img):
                 out += c
-                mode_aktif = m
+                tingkat_aktif = t
+                model_aktif = m
                 ph.markdown(out + "▌")
             ph.markdown(out)
-            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "mode": mode_aktif})
+            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
+
     elif prompt.get("text"):
         txt = prompt["text"]
         st.session_state.messages.append({"role": "user", "content": txt, "type": "text"})
@@ -263,10 +187,11 @@ if prompt:
         with st.chat_message("assistant"):
             ph = st.empty()
             out = ""
-            for c, m in jawab_fanilla(txt):
+            for c, t, m in kirim_ke_ai(txt):
                 out += c
-                mode_aktif = m
+                tingkat_aktif = t
+                model_aktif = m
                 ph.markdown(out + "▌")
             ph.markdown(out)
-            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "mode": mode_aktif})
+            st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
     st.rerun()
