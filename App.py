@@ -4,6 +4,7 @@ from PIL import Image
 from datetime import datetime
 import pytz
 from duckduckgo_search import DDGS
+import re
 
 st.set_page_config(page_title="Fanilla AI", page_icon="🎓", layout="centered", initial_sidebar_state="collapsed")
 
@@ -13,19 +14,17 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
- .main { background-color: #0E0E0E; }
- .block-container { padding-top: 3rem!important; padding-bottom: 8rem!important; max-width: 768px!important; }
- .main-title { text-align: center; font-size: 2.8rem; font-weight: 600; background: linear-gradient(90deg, #60A5FA, #A78BFA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
- .subtitle { text-align: center; color: #9CA3AF; font-size: 1rem; margin-bottom: 3rem; }
- .stChatMessage { background-color: transparent!important; padding: 1.2rem 0!important; }
+   .main { background-color: #0E0E0E; }
+   .block-container { padding-top: 3rem!important; padding-bottom: 8rem!important; max-width: 768px!important; }
+   .main-title { text-align: center; font-size: 2.8rem; font-weight: 600; background: linear-gradient(90deg, #60A5FA, #A78BFA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+   .subtitle { text-align: center; color: #9CA3AF; font-size: 1rem; margin-bottom: 3rem; }
+   .stChatMessage { background-color: transparent!important; padding: 1.2rem 0!important; }
     [data-testid="stChatMessageContent"] { background-color: #1F1F1F!important; border-radius: 16px!important; padding: 1rem 1.25rem!important; color: #E5E5E5!important; line-height: 1.7; border: 1px solid #2A2A2A; font-size: 1rem; }
- .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #2A2A2A!important; }
- .stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(14,14,14,0) 0%, #0E0E0E 20%)!important; padding: 2rem 1rem 1.5rem 1rem!important; max-width: 768px!important; margin: 0 auto!important; }
- .stChatInput > div { background-color: #1F1F1F!important; border: 1px solid #3A3A3A!important; border-radius: 24px!important; }
- .stChatInput input { color: #E5E5E5!important; }
- .stImage img { border-radius: 12px!important; border: 1px solid #2A2A2A; }
- .stButton button { background-color: #2A2A2A!important; color: #E5E5E5!important; border: 1px solid #3A3A3A!important; border-radius: 8px!important; }
- .stToast { background-color: #1F1F1F!important; border: 1px solid #3A3A3A!important; }
+   .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #2A2A2A!important; }
+   .stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(14,14,14,0) 0%, #0E0E0E 20%)!important; padding: 2rem 1rem 1.5rem 1rem!important; max-width: 768px!important; margin: 0 auto!important; }
+   .stChatInput > div { background-color: #1F1F1F!important; border: 1px solid #3A3A3A!important; border-radius: 24px!important; }
+   .stChatInput input { color: #E5E5E5!important; }
+   .stImage img { border-radius: 12px!important; border: 1px solid #2A2A2A; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -42,75 +41,101 @@ if "messages" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== FUNGSI DOSEN ====================
+# ==================== FUNGSI DOSEN ADAPTIVE ====================
 def search_web(query):
     try:
         with DDGS() as ddgs:
-            results = list(ddgs.text(f"{query} penjelasan akademik", max_results=3))
+            results = list(ddgs.text(f"{query} penjelasan", max_results=2))
             if results:
                 return "\n".join([f"- {r['body']}" for r in results])
     except:
         return ""
     return ""
 
-def deteksi_tingkatan(text):
-    """Deteksi otomatis level TK-S3 dari pertanyaan"""
+def analisis_kesulitan(text):
+    """Tentuin panjang jawaban 10-30 baris berdasarkan susah soal"""
     t = text.lower()
-    if any(k in t for k in ["tk", "paud", "anak kecil", "umur 5", "umur 6"]): return "TK"
-    if any(k in t for k in ["sd", "kelas 1", "kelas 2", "kelas 3", "kelas 4", "kelas 5", "kelas 6"]): return "SD"
-    if any(k in t for k in ["smp", "kelas 7", "kelas 8", "kelas 9"]): return "SMP"
-    if any(k in t for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "utbk", "snbt"]): return "SMA"
-    if any(k in t for k in ["s2", "tesis", "magister", "master"]): return "S2"
-    if any(k in t for k in ["s3", "phd", "disertasi", "doktor"]): return "S3"
-    if any(k in t for k in ["kuliah", "s1", "mahasiswa", "skripsi"]): return "S1"
-    return "SMA" # Default anggap mahasiswa
+    skor = 0
 
-def jawab_soal_dosen(prompt_text, image=None):
-    """Jawab kayak dosen beneran. Bukan AI."""
-    level = deteksi_tingkatan(prompt_text)
+    # Level TK-SD: soal gampang, jawaban pendek 10-15 baris
+    if any(k in t for k in ["tk", "paud", "sd", "kelas 1", "kelas 2", "kelas 3", "anak kecil", "apa warna", "berapa"]):
+        return 12, "TK-SD"
 
-    # Style ngajar tiap level
+    # Level SMP: sedang, 15-20 baris
+    if any(k in t for k in ["smp", "kelas 7", "kelas 8", "kelas 9", "akar", "persamaan linear"]):
+        return 18, "SMP"
+
+    # Level SMA: agak susah, 20-25 baris
+    if any(k in t for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "integral", "turunan", "limit", "trigonometri", "utbk"]):
+        return 23, "SMA"
+
+    # Level Kuliah: susah, 25-30 baris
+    if any(k in t for k in ["kuliah", "s1", "s2", "s3", "mahasiswa", "skripsi", "tesis", "disertasi", "jurnal", "algoritma", "kalkulus", "aljabar linear", "phd"]):
+        return 28, "Kuliah"
+
+    # Deteksi kata susah
+    kata_susah = ["buktikan", "turunkan", "analisis", "bandingkan", "kritis", "hipotesis", "metodologi", "novelty", "research gap"]
+    skor += sum(3 for k in kata_susah if k in t)
+
+    # Deteksi MTK susah
+    if re.search(r"integral|turunan|limit|diferensial|matriks|vektor", t):
+        skor += 5
+
+    if skor >= 8: return 28, "Kuliah"
+    elif skor >= 5: return 23, "SMA"
+    elif skor >= 2: return 18, "SMP"
+    else: return 15, "Umum"
+
+def jawab_dosen_adaptive(prompt_text, image=None):
+    """Jawab kayak dosen, panjang nyesuaiin susah soal 10-30 baris"""
+
+    max_baris, level = analisis_kesulitan(prompt_text)
+
+    # Gaya ngajar tiap level
     gaya_dosen = {
-        "TK": "Baik adik-adik, coba Ibu jelaskan ya. Kita pakai cerita biar gampang. Bayangkan...",
-        "SD": "Oke anak-anak, perhatikan. Ibu kasih contoh yang ada di rumah kalian ya. Jadi begini...",
-        "SMP": "Baik, kita bedah konsepnya dulu. Catat rumus dasarnya. Perhatikan contoh berikut ini.",
-        "SMA": "Saudara sekalian, mari kita analisis secara step-by-step. Pertama, kita identifikasi dulu. Kedua...",
-        "S1": "Dalam konteks akademis, kita perlu mengkaji beberapa hal. Secara teoritis, hal ini merujuk pada... Berikut referensinya.",
-        "S2": "Jika kita telaah lebih kritis, terdapat celah penelitian di sini. Coba bandingkan teori A dengan teori B. Apa kebaruannya?",
-        "S3": "Untuk tingkat doctoral, hipotesis yang Anda ajukan perlu diuji validitasnya. Metodologi yang tepat adalah... Novelty dari riset ini terletak pada..."
+        "TK-SD": "Baik adik-adik, Ibu jelasin pelan-pelan ya. Kita pakai contoh mainan aja. Jadi gini...",
+        "SMP": "Oke, kita bedah bareng. Catat ya rumus dasarnya dulu. Perhatikan langkah-langkah ini.",
+        "SMA": "Baik, mari kita analisis secara sistematis. Pertama identifikasi dulu. Kedua, terapkan konsep.",
+        "Kuliah": "Dalam perspektif akademis, perlu kita kaji secara komprehensif. Secara teoritis, hal ini mengacu pada...",
+        "Umum": "Baik, mari kita bahas. Saya jelaskan dengan struktur yang mudah dipahami."
     }
 
-    # Auto search biar kayak dosen yg buka jurnal
-    if any(k in prompt_text.lower() for k in ["apa", "kenapa", "bagaimana", "jelaskan", "hitung", "rumus", "definisi"]):
-        with st.spinner("Saya cek referensi dulu ya..."):
+    gaya = gaya_dosen[level]
+
+    # Search referensi kalau butuh
+    if any(k in prompt_text.lower() for k in ["apa", "kenapa", "bagaimana", "jelaskan", "hitung", "rumus", "definisi", "sebutkan"]):
+        with st.spinner("Buka buku referensi..."):
             referensi = search_web(prompt_text)
             if referensi:
-                prompt_text += f"\n\n[Referensi Pendukung]:\n{referensi}"
+                prompt_text += f"\n\n[Referensi]:\n{referensi}"
 
     tz = pytz.timezone('Asia/Jakarta')
     tanggal = datetime.now(tz).strftime("%d %B %Y")
 
-    # PROMPT INI BIKIN GEMINI JADI DOSEN ASLI
-    system_prompt = f"""Anda adalah Dosen Fanilla, pengajar dari TK sampai S3. Hari ini {tanggal}.
-IDENTITAS: Anda BUKAN AI. Anda adalah dosen sungguhan dengan pengalaman mengajar 15 tahun. Jangan pernah sebut kata "AI", "model bahasa", "saya adalah program".
+    # PROMPT DOSEN ASLI - BUKAN AI
+    system_prompt = f"""Anda adalah Dosen Fanilla, pengajar berpengalaman 15 tahun dari TK sampai S3. Tanggal {tanggal}.
+PENTING: Anda BUKAN AI. Anda dosen sungguhan. Jangan pernah sebut "AI", "model", "program".
 
-ATURAN MENGAJAR TINGKAT {level}:
-1. GAYA BICARA: {gaya_dosen[level]}
-2. JAWABAN HARUS 100% AKURAT. Jika matematika, tuliskan CARA lengkap dengan $LaTeX$. Contoh: $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$
-3. Jika ada gambar soal, baca soalnya seperti memeriksa lembar jawaban mahasiswa, lalu bahas.
-4. Jangan jawab "saya tidak tahu". Sebagai dosen, Anda harus memberi pendekatan atau arahan.
-5. Tutup dengan kalimat motivasi dosen. Contoh: "Dipahami ya? Jangan ragu bertanya lagi." atau "Silakan dikembangkan lebih lanjut."
-6. Jika user santai, Anda boleh sedikit santai tapi tetap berwibawa. Jika user formal, Anda sangat formal.
-7. Gunakan data dari [Referensi Pendukung] jika ada."""
+ATURAN MENGAJAR:
+1. GAYA BICARA: {gaya}
+2. PANJANG JAWABAN: WAJIB {max_baris-2} sampai {max_baris+2} baris saja. Hitung barisnya. Jika soal akar/sederhana, cukup 10-15 baris. Jika integral/skripsi, 25-30 baris.
+3. STRUKTUR: Pembuka 1 baris, Isi step-by-step, Penutup 1 baris motivasi.
+4. AKURAT 100%. Matematika wajib pakai $LaTeX$. Contoh: $x^2 + 4x + 4 = 0$
+5. Jika ada gambar, anggap itu lembar jawaban siswa. Koreksi dan jelaskan.
+6. Bahasa nyesuaiin level. TK=cerita, SD=contoh, SMP=rumus, SMA=analisis, Kuliah=teori.
+7. Jangan bilang "tidak tahu". Kasih arahan sebagai dosen.
+8. Penutup harus motivasi: "Paham ya?" atau "Silakan dikembangkan." atau "Semangat belajarnya!"
 
-    full_prompt = f"{system_prompt}\n\nPertanyaan dari Mahasiswa/Siswa: {prompt_text}"
+Tingkat terdeteksi: {level}. Target baris: {max_baris}."""
+
+    full_prompt = f"{system_prompt}\n\nPertanyaan Siswa/Mahasiswa: {prompt_text}"
 
     try:
         if image:
-            st.toast("Saya periksa dulu soal di gambarnya...", icon="🔍")
+            st.toast("Memeriksa soal di gambar...", icon="🔍")
             response = st.session_state.chat.send_message([full_prompt, image], stream=True)
         else:
-            st.toast("Baik, saya jelaskan...", icon="🧑‍🏫")
+            st.toast("Menyiapkan penjelasan...", icon="🧑‍🏫")
             response = st.session_state.chat.send_message(full_prompt, stream=True)
 
         for chunk in response:
@@ -118,9 +143,9 @@ ATURAN MENGAJAR TINGKAT {level}:
                 yield chunk.text
     except Exception as e:
         if "429" in str(e):
-            yield "Maaf, sesi kuliah hari ini sudah penuh. Silakan kembali lagi besok pagi ya. Jam konsultasi saya buka lagi pukul 07.00 WIB."
+            yield "Maaf, jam konsultasi hari ini sudah habis. Silakan kembali besok pagi pukul 07.00 WIB ya."
         else:
-            yield "Mohon maaf, ada gangguan teknis di proyektor. Coba tanyakan sekali lagi ya."
+            yield "Maaf, ada gangguan di proyektor. Coba kirim ulang pertanyaannya ya."
 
 # ==================== TAMPILAN UTAMA ====================
 if len(st.session_state.messages) == 0:
@@ -137,7 +162,7 @@ for msg in st.session_state.messages:
 
 # INPUT CHAT + VISION
 prompt = st.chat_input(
-    "Tanyakan apa saja ke Dosen Fanilla...",
+    "Tanya soal atau upload foto soal...",
     accept_file=True,
     file_type=["jpg", "jpeg", "png"]
 )
@@ -146,7 +171,7 @@ if prompt:
     # KALAU ADA GAMBAR SOAL
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
-        user_text = prompt.get("text", "Pak/Bu, tolong bantu kerjakan soal di gambar ini.")
+        user_text = prompt.get("text", "Pak/Bu Dosen, tolong bantu koreksi soal ini.")
 
         st.session_state.messages.append({"role": "user", "content": image, "type": "image", "caption": user_text})
         with st.chat_message("user"):
@@ -155,7 +180,7 @@ if prompt:
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
-            for chunk in jawab_soal_dosen(user_text, image=image):
+            for chunk in jawab_dosen_adaptive(user_text, image=image):
                 full_response += chunk
                 placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
@@ -171,7 +196,7 @@ if prompt:
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
-            for chunk in jawab_soal_dosen(user_text):
+            for chunk in jawab_dosen_adaptive(user_text):
                 full_response += chunk
                 placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
