@@ -29,13 +29,14 @@ st.markdown("""
 .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
 .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
 .stChatInput input::placeholder { color: #71717A!important; }
-/* INI YG NGILANGIN KOTAK ABU-ABU DI LOGO */
+/* ILANGIN KOTAK ABU-ABU LOGO */
 div[data-testid="stImage"] > img { border: none!important; background: transparent!important; border-radius: 0!important; }
 .stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
 .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
 .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
 .gemini { background-color: #1e40af; color: #dbeafe; }
 .llama { background-color: #7c2d12; color: #ffedd5; }
+.limit-warning { background-color: #7c2d12!important; border: 1px solid #f97316!important; color: #ffedd5!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -54,6 +55,8 @@ if "gemini_chat" not in st.session_state:
     st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "groq_history" not in st.session_state:
     st.session_state.groq_history = []
+if "req_count" not in st.session_state:
+    st.session_state.req_count = 0
 
 # ==================== OTAK FANILLA GAUL MAX ====================
 def deteksi_tingkat(text):
@@ -67,6 +70,14 @@ def deteksi_tingkat(text):
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
+
+    # NOTIF KALO LIMIT MAU ABIS BUNG
+    st.session_state.req_count += 1
+    sisa = 50 - st.session_state.req_count
+    if sisa == 3:
+        st.toast("Bro waktu ngobrol lu sama Gemini/Llama tinggal dikit nih, sisa 3x lagi 🔥", icon="⚠️")
+    elif sisa == 1:
+        st.toast("Anjir bro, ini chat terakhir sama Gemini hari ini. Besok reset jam 7 pagi ya 🙏", icon="🚨")
 
     # ========== PROMPT GAUL MAX - ANAK NONGKRONG ==========
     system_prompt = f"""Lu itu Fanilla. Temen nongkrong yg pinter kebangetan. Bukan dosen, bukan AI. Tanggal {tgl}.
@@ -145,7 +156,7 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    # LOGO FNL FIX FINAL - PAKE st.image + CSS BUAT ILANGIN BORDER
+    # LOGO FNL FIX FINAL - TANPA KOTAK
     col1, col2, col3 = st.columns([3,2,3])
     with col2:
         st.image("logo.png", width=130)
