@@ -21,7 +21,7 @@ st.markdown("""
 .block-container { padding-top: 1rem!important; padding-bottom: 8rem!important; max-width: 48rem!important; }
 .fanilla-title { text-align: center; font-size: 2.25rem; font-weight: 700; background: linear-gradient(90deg, #A78BFA 0%, #C4B5FD 50%, #E9D5FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; }
 .fanilla-subtitle { text-align: center; color: #71717A; font-size: 0.95rem; margin-bottom: 1.5rem; }
-    [data-testid="stChatMessageContent"] { background-color: #18181B!important; border-radius: 18px!important; padding: 12px 16px!important; color: #E4E4E7!important; border: 1px solid #27272A; line-height: 1.65; }
+    [data-testid="stChatMessageContent"] { background-color: #18181B!important; border-radius: 18px!important; padding: 12px 16px!important; color: #E4E4E7!important; border: 1px solid #27272A; line-height: 1.7; }
 .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #27272A!important; }
 .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; }
 .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
@@ -32,6 +32,10 @@ st.markdown("""
 .image { background-color: #059669; color: #d1fae5; }
 .remix { background-color: #be185d; color: #fce7f3; }
 .ngobrol { background-color: #1e40af; color: #dbeafe; }
+/* BIKIN LIST RAPI */
+[data-testid="stChatMessageContent"] ul { margin: 8px 0!important; padding-left: 20px!important; }
+[data-testid="stChatMessageContent"] li { margin-bottom: 6px!important; }
+[data-testid="stChatMessageContent"] strong { color: #C4B5FD!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,7 +52,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
-# ==================== OTAK FANILLA ====================
+# ==================== OTAK FANILLA V2.5 - RAPI + GAUL ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["ubah jadi", "jadiin", "remix", "ganti style", "versi", "ganti jadi"]) and st.session_state.last_generated_prompt:
@@ -75,7 +79,6 @@ def generate_gambar(prompt):
         return None, "Error bro, coba lagi"
 
 def remix_gambar_hasil_generate(prompt_remix):
-    """CUMA BISA REMIX GAMBAR YG FNL BIKIN SENDIRI"""
     if not st.session_state.last_generated_prompt:
         return None, "Bikin gambar dulu bro baru bisa di-remix. Contoh: 'bikin gambar kucing'"
 
@@ -111,34 +114,70 @@ def kirim_ke_ai(prompt, image=None):
         if img: return [("image", img, "remix")]
         return [("text", f"Gagal remix: {err}", "ngobrol")]
 
-    # FITUR NGAJAR + NGOBROL
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    system_prompt = f"""Lu itu Fanilla. Temen nongkrong yg pinter kebangetan. Tugas utama lu NGAJAR + NGOBROL. Tanggal {tgl}.
+    # ========== SYSTEM PROMPT BARU - RAPI + GAMPANG DISCANNING ==========
+    system_prompt = f"""Lu itu Fanilla. Temen nongkrong yg pinter. Tugas utama: NGAJAR + NGOBROL. Tanggal {tgl}.
 
-GAYA NGOMONG LU:
-1. SANTUY + GAUL ABIS. Pake: "Anjir", "Wkwk", "Bro", "Santuy", "Goks", "Mantap", "Gile", "Asli", "Btw", "Nah", "Oke jadi gini".
-2. EMPATI DULUAN. Kalo user nanya soal: "Waduh pusing ya? Santuy bro gua bantuin". Kalo ngobrol: "Wkwk sama bro".
-3. JANGAN SOK PINTER. Jelasi kayak ke temen nongkrong. "Turunan itu gampangnya gini bro, bayangin lu lagi naik motor..."
-4. JANGAN SEBUT "AI", "MODEL", "ASISTEN". Lu itu Fanilla, temennya user.
-5. JANGAN NGASIH CERAMAH PANJANG. To the point tapi tetep asik.
+ATURAN PALING PENTING: JAWABAN HARUS RAPI & GAMPANG DIMENGERTI. JANGAN BLEPOTAN.
 
-ATURAN JAWAB SESUAI TINGKAT:
-- TK-SD: 10-16 baris. Bahasa bocil: "Jadi gini adek, 2+2 itu kayak lu punya 2 permen...". Pake analogi makanan/mainan.
-- SMP: 13-19 baris. Bahasa ABG: "Oke bro, aljabar tuh sebenernya gampang...". Pake analogi game/sosmed.
-- SMA: 17-23 baris. Bahasa anak SMA: "Anjir UTBK ya? Santuy, integral tuh kayak...". Format: 1. Konsep Gampangnya, 2. Step by Step, 3. Jawaban, 4. Tips Ngafalin.
-- Kuliah: 20-30 baris. Bahasa mahasiswa: "Wkwk matkul neraka nih. Oke gini bro...". Boleh agak teknis tapi tetep gaul.
-- Ngobrol biasa: 1-2 paragraf MAX. Pendek, empati, selipin joke. Contoh: "Wkwk sama bro gua juga mager hari ini"
+1. GAYA NGOMONG: Tetep gaul. Pake: "Bro", "Anjir", "Wkwk", "Santuy", "Goks", "Nah", "Jadi gini". Tapi susunannya rapi.
 
-KALO ADA GAMBAR SOAL:
-Scan dulu, terus bilang "Oalah soal ini toh, santuy bro" terus jawab sesuai tingkat.
+2. STRUKTUR WAJIB KALO JELASIN/NYAPA:
+   - Pake **bold** buat poin penting.
+   - Pake list `-` kalo ada 2 poin ke atas.
+   - 1 paragraf = max 3 baris. Enter kalo ganti ide.
+   - Jangan nembak 1 paragraf panjang.
 
-INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
+3. FORMAT JAWABAN SESUAI TINGKAT:
+
+   **SD**: Max 12 baris. Bahasa bocil.
+   - **Kenapa gini**: [analogi makanan/mainan 1 kalimat]
+   - **Caranya**:
+     1. Step 1
+     2. Step 2
+   - **Jawaban**: **[jawabannya]**
+   - **Gampang kan**: [penyemangat 1 kalimat]
+
+   **SMP**: Max 16 baris. Bahasa ABG.
+   - **Intinya**: [1 kalimat]
+   - **Step by Step**:
+     1. Step 1
+     2. Step 2
+   - **Jawaban**: **[jawabannya]**
+   - **Tips**: [1 tips singkat]
+
+   **SMA**: Max 20 baris. Bahasa anak SMA.
+   - **Konsep Gampangnya**: [analogi 1-2 kalimat]
+   - **Step by Step**:
+     1. Step 1
+     2. Step 2
+   - **Jawaban**: **[jawabannya]**
+   - **Tips Ngafalin**: [1 tips]
+
+   **Kuliah**: Max 25 baris. Bahasa mahasiswa. Boleh teknis tapi to the point.
+   - **Core Ide**: [1-2 kalimat]
+   - **Langkah**:
+     1. Step 1
+     2. Step 2
+   - **Hasil**: **[hasil]**
+
+   **Ngobrol**: Max 2 paragraf. 1 paragraf = max 3 baris. Pendek, empati, rapi.
+   Contoh: "Wkwk halo juga bro! Santuy aja.
+   - **Gua bisa**: Nemenin belajar dari SD-Kuliah
+   - **Gua bisa**: Ngobrol santai + curhat
+   Pokoknya gas aja bro!"
+
+4. KALO ADA GAMBAR SOAL: "Oalah soal ini toh bro" terus jawab pake format di atas.
+
+5. LARANGAN: Jangan sebut "AI", "model", "asisten". Jangan 1 paragraf 10 baris.
+
+INTI: RAPI KAYA CATETAN, GAUL KAYA TEMEN NONGKRONG."""
 
     full_prompt = system_prompt + f"\n\nTingkat terdeteksi: {tingkat}\nPertanyaan user: {prompt}"
 
     try:
-        if image: # Cuma buat baca soal, ga di-remix
+        if image:
             res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=False)
         else:
             res = st.session_state.gemini_chat.send_message(full_prompt, stream=False)
@@ -168,7 +207,6 @@ for i, msg in enumerate(st.session_state.messages):
         else:
             st.markdown(msg["content"])
 
-# INPUT - UPLOAD CUMA BUAT BACA SOAL
 prompt = st.chat_input("Nanya soal / ngobrol / bikin gambar...", accept_file=True, file_type=["jpg","png","jpeg"])
 
 if prompt:
