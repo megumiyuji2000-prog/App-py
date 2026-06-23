@@ -12,36 +12,52 @@ import base64
 
 st.set_page_config(page_title="Fanilla AI", page_icon="logo.png", layout="centered")
 
-# ==================== CSS MINIMALIST + LOGO ====================
-st.markdown("""
+# ==================== AUTO DARK/LIGHT BERDASAR WAKTU ====================
+jakarta_tz = pytz.timezone('Asia/Jakarta')
+current_hour = datetime.now(jakarta_tz).hour
+IS_DARK = not (6 <= current_hour < 18) # 06:00-17:59 terang, sisanya gelap
+
+THEME = {
+    "bg": "#0A0A0B" if IS_DARK else "#FFFFFF",
+    "chat_bg": "#18181B" if IS_DARK else "#F4F4F5",
+    "user_chat_bg": "#27272A" if IS_DARK else "#E4E4E7",
+    "text": "#E4E4E7" if IS_DARK else "#18181B",
+    "border": "#27272A" if IS_DARK else "#E4E4E7",
+    "badge_bg": "#18181B" if IS_DARK else "#F4F4F5",
+    "badge_text": "#A1A1AA" if IS_DARK else "#71717A",
+    "input_border": "#A78BFA",
+    "primary": "#A78BFA",
+}
+
+# ==================== CSS DYNAMIC ====================
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-    #MainMenu, footer, header {visibility: hidden;}
-   .stApp,.main { background-color: #FFFFFF; }
-   .block-container { padding-top: 5rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }
-    /* LOGO POJOK KIRI ATAS */
-   .fanilla-logo { position: fixed; top: 18px; left: 18px; z-index: 999; width: 36px; height: 36px; }
-   .fanilla-logo img { border-radius: 8px; }
-    [data-testid="stChatMessageContent"] { background-color: #F4F4F5!important; border-radius: 16px!important; padding: 14px 18px!important; color: #18181B!important; border: 1px solid #E4E4E7; line-height: 1.8; font-size: 0.95rem; }
-   .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #E4E4E7!important; }
-   .stChatInput > div { background-color: #FFFFFF!important; border: 1px solid #A78BFA!important; border-radius: 24px!important; }
-   .fanilla-badge { display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: #F4F4F5; color: #71717A; border: 1px solid #E4E4E7; }
-   .sd { background-color: #DCFCE7; color: #166534; border-color: #BBF7D0; }
-   .smp { background-color: #FEF3C7; color: #854D0E; border-color: #FDE68A; }
-   .sma { background-color: #FFEDD5; color: #9A3412; border-color: #FED7AA; }
-   .kuliah { background-color: #FEE2E2; color: #991B1B; border-color: #FECACA; }
-   .image { background-color: #D1FAE5; color: #059669; border-color: #A7F3D0; }
-   .remix { background-color: #FCE7F3; color: #BE185D; border-color: #FBCFE8; }
-   .ngobrol { background-color: #DBEAFE; color: #1E40AF; border-color: #BFDBFE; }
-    [data-testid="stChatMessageContent"] h3 { font-size: 1rem!important; font-weight: 600!important; margin: 14px 0 6px 0!important; color: #18181B!important; }
-    [data-testid="stChatMessageContent"] ul { margin: 6px 0!important; padding-left: 18px!important; }
-    [data-testid="stChatMessageContent"] li { margin-bottom: 4px!important; }
-    [data-testid="stChatMessageContent"] strong { color: #7C3AED!important; font-weight: 600!important; }
+    html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+    #MainMenu, footer, header {{visibility: hidden;}}
+  .stApp,.main {{ background-color: {THEME['bg']}; }}
+  .block-container {{ padding-top: 1rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
+  .fanilla-logo {{ position: fixed; top: 18px; left: 18px; z-index: 999; width: 36px; height: 36px; }}
+  .fanilla-logo img {{ border-radius: 8px; }}
+    /* OPENING META AI STYLE */
+  .meta-opening {{ margin-top: 25vh; margin-bottom: 2rem; }}
+  .meta-title {{ font-size: 2rem; font-weight: 700; color: {THEME['text']}; margin-bottom: 2rem; line-height: 1.2; }}
+  .meta-btn {{ display: block; width: 100%; text-align: left; padding: 14px 18px; margin-bottom: 12px; background-color: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 24px; color: {THEME['text']}; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }}
+  .meta-btn:hover {{ border-color: {THEME['primary']}; background-color: {THEME['user_chat_bg']}; }}
+  .meta-btn-icon {{ margin-right: 12px; font-size: 1.1rem; }}
+
+    [data-testid="stChatMessageContent"] {{ background-color: {THEME['chat_bg']}!important; border-radius: 18px!important; padding: 14px 18px!important; color: {THEME['text']}!important; border: 1px solid {THEME['border']}; line-height: 1.8; font-size: 0.95rem; }}
+  .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] {{ background-color: {THEME['user_chat_bg']}!important; }}
+  .stChatInput > div {{ background-color: {THEME['bg']}!important; border: 1px solid {THEME['input_border']}!important; border-radius: 24px!important; }}
+  .fanilla-badge {{ display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: {THEME['badge_bg']}; color: {THEME['badge_text']}; border: 1px solid {THEME['border']}; }}
+   [data-testid="stChatMessageContent"] h3 {{ font-size: 1rem!important; font-weight: 600!important; margin: 14px 0 6px 0!important; color: {THEME['text']}!important; }}
+   [data-testid="stChatMessageContent"] ul {{ margin: 6px 0!important; padding-left: 18px!important; }}
+   [data-testid="stChatMessageContent"] li {{ margin-bottom: 4px!important; }}
+   [data-testid="stChatMessageContent"] strong {{ color: #7C3AED!important; font-weight: 600!important; }}
 </style>
 """, unsafe_allow_html=True)
 
-# TAMPILIN LOGO
+# LOGO
 try:
     with open("logo.png", "rb") as f:
         data = base64.b64encode(f.read()).decode()
@@ -61,7 +77,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
-# ==================== FANILLA BRAIN V4.0 ====================
+# ==================== FANILLA BRAIN V5.0 ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["s3", "disertasi", "rbv", "dynamic capabilities", "transformer", "freire", "dekonstruksi", "backpropagation", "doktoral"]):
@@ -85,7 +101,7 @@ def generate_gambar(prompt):
         r = requests.get(url, timeout=45)
         if r.status_code == 200:
             return Image.open(io.BytesIO(r.content)).convert("RGB"), None
-        return None, "Server lagi penuh bro"
+        return None, "Server lagi penuh"
     except Exception as e:
         return None, "Error bro, coba lagi"
 
@@ -114,7 +130,6 @@ def image_to_bytes(img):
 
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
-    is_first_chat = len(st.session_state.messages) <= 1
 
     if tingkat == "image":
         img, err = generate_gambar(prompt)
@@ -128,59 +143,44 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    intro_block = ""
-    if is_first_chat:
-        intro_block = """Kalo user nanya "lu bisa apa" di chat pertama, jawab 2 paragraf @10 baris:
-Tugas gua simpel bro. Gua dibangun buat 3 hal utama biar hidup lu lebih gampang.
-Pertama, **nemenin belajar** dari SD sampe S3. Gua jelasin pake struktur rapi, analogi gampang, dan to the point. Jadi ga ada lagi tuh materi yg bikin pusing tujuh keliling.
-Kedua, **ngobrol santai** kalo lu gabut atau butuh temen curhat. Jawaban gua pendek, tapi ngena dan ga ngebosenin.
-Ketiga, **bikinin gambar** sesuai request lu. Udah jadi bisa di-remix style-nya, terus langsung download.
+    # ========== PROMPT SEMPURNA V5.0 ==========
+    system_prompt = f"""Kamu adalah Fanilla. Asisten AI analitis, rapi, to the point. Tanggal: {tgl}.
 
-Intinya anggap gua temen lu yg kebetulan agak pinter dikit dan jago desain. Ada PR numpuk, tugas kuliah, atau cuma mau bikin meme? Lempar aja semua ke gua."""
-    else:
-        intro_block = "JANGAN INTRO LAGI. LANGSUNG JAWAB SESUAI ATURAN PARAGRAF."
+ATURAN PARAGRAF MUTLAK:
+1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf. Total 10 baris.
+   Format:
+   Baris 1
+   Baris 2
+   Baris 3
+   Baris 4
+   Baris 5
 
-    # ========== PROMPT SEMPURNA V4.0 ==========
-    system_prompt = f"""Kamu adalah Fanilla. Asisten AI yg analitis, rapi, dan to the point. Tanggal: {tgl}.
+   Baris 6
+   Baris 7
+   Baris 8
+   Baris 9
+   Baris 10
 
-{intro_block}
+2. **NGAJAR SD-SMP**: 2-3 paragraf. WAJIB 5 baris per paragraf.
+3. **NGAJAR SMA**: 3-4 paragraf. WAJIB 5 baris per paragraf.
+4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
 
-ATURAN FORMAT MUTLAK - LANGGAR = GAGAL TOTAL:
-1. **ATURAN NGOBROL**: WAJIB 2 paragraf. WAJIB 10 baris per paragraf. Total 20 baris.
-   Contoh struktur:
-   Paragraf 1 baris 1
-   Paragraf 1 baris 2
-  ...sampai baris 10
-   [ENTER KOSONG]
-   Paragraf 2 baris 1
-  ...sampai baris 10
+STRUKTUR WAJIB: Pake ### Heading, bullet `-`, **bold** keyword.
 
-2. **ATURAN NGAJAR SD-SMP**: 2-3 paragraf. WAJIB 5 baris per paragraf.
-3. **ATURAN NGAJAR SMA**: 3-4 paragraf. WAJIB 5 baris per paragraf.
-4. **ATURAN NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
+CONTOH NGOBROL BENAR [2 paragraf, 5 baris/paragraf]:
+Senang bisa bantu lu bro. Kalo ada tugas numpuk atau materi yg ga ngerti, tinggal tanya.
+Gua bakal bedah pake bahasa sederhana dan struktur yg gampang diikutin.
+Buat anak SD gua pake analogi mainan. Buat SMP pake analogi game.
+Buat SMA gua kasih step-by-step plus tips ngafalin biar UTBK aman.
+Buat kuliah sampe S3, gua bantu bedah jurnal sampe bikin sintesis teori.
 
-5. **STRUKTUR WAJIB**: Pake ### Heading, bullet `-`, **bold** keyword. Ini buat scan cepat.
-6. **GAYA**: Warm tapi profesional. Pake "lu/gua". Boleh "bro" 1-2x aja. Jangan alay.
-7. **LARANGAN**: Jangan sebut "AI", "model". Jangan 1 paragraf panjang. Jangan mulai "Berikut adalah".
+Selain ngajar, gua juga bisa diajak ngobrol santai kalo lu gabut.
+Butuh temen curhat? Gas aja. Mau bahas anime, bola, atau drama? Bisa.
+Gua juga bisa bikinin gambar kalo lu butuh visualisasi materi.
+Udah jadi bisa di-remix stylenya, terus langsung download.
+Intinya anggap gua asisten pribadi lu yg standby 24/7. Deal?
 
-CONTOH OUTPUT NGOBROL YG BENAR [2 paragraf, 10 baris/paragraf]:
-Senang bisa bantu lu bro. Kalo ada tugas numpuk atau materi yg ga ngerti, tinggal tanya aja.
-Gua bakal bedah pake bahasa sederhana dan struktur yg gampang diikutin. Jadi otak lu ga kebakar.
-Buat anak SD, gua pake analogi permen atau mainan. Biar langsung nyantol di kepala.
-Buat SMP, gua pake analogi game atau sosmed. Relate sama dunia lu.
-Buat SMA, gua kasih step-by-step plus tips ngafalin. Biar UTBK aman.
-Buat kuliah sampe S3, gua bantu bedah jurnal, teori, sampe bikin sintesis. Ga cuma definisi.
-Selain ngajar, gua juga bisa diajak ngobrol santai. Lagi gabut? Butuh temen curhat? Gas aja.
-Gua juga bisa bikinin gambar kalo lu butuh visualisasi. Udah jadi bisa di-remix stylenya.
-Terus tinggal download. Simpel kan? Jadi ga perlu buka banyak aplikasi.
-Intinya gua all-in-one. Anggep aja gua asisten pribadi lu yg standby 24/7.
-
-Ada lagi yg mau dibahas atau dibikinin? Gua tungguin bro. Santuy aja lempar semua pertanyaan lu.
-Kalo bingung mulai dari mana, kasih tau aja lu lagi di tingkat apa. SD, SMP, SMA, atau kuliah.
-Gua bakal nyesuaiin gaya jelasinnya. Dijamin ga bikin ngantuk.
-Tujuan gua cuma satu: bikin semua hal rumit jadi simpel. Deal?
-
-CONTOH OUTPUT NGAJAR KULIAH YG BENAR [4 paragraf, 5 baris/paragraf]:
+CONTOH NGAJAR KULIAH BENAR [4 paragraf, 5 baris/paragraf]:
 ### Core Ide
 RBV bilang keunggulan kompetitif tahan lama muncul kalo sumber daya lu **VRIN**.
 Itu singkatan dari Valuable, Rare, Inimitable, Non-substitutable.
@@ -197,7 +197,7 @@ TikTok bisa matiin Instagram Reels dalam setahun.
 
 ### Analisis Kasus GoTo
 **Strength RBV**: `network effect` driver+merchant GoTo itu *valuable* & *rare*.
-Susuh ditiru 100% sama kompetitor karena butuh waktu dan bakar duit.
+Susah ditiru 100% sama kompetitor karena butuh waktu dan bakar duit.
 Tapi ini cuma fondasi awal. Ga jamin menang selamanya.
 **Kelemahan RBV**: Ga jelasin gimana GoTo pivot pas Covid dari transport ke logistik.
 Itu butuh **Dynamic Capabilities**, bukan cuma resources statis.
@@ -206,7 +206,12 @@ Itu butuh **Dynamic Capabilities**, bukan cuma resources statis.
 **RBV jelasin fondasi awal**, tapi **Dynamic Capabilities jelasin sustain-nya**.
 Tanpa kemampuan adaptasi, VRIN GoTo mati. Jadi keunggulan GoTo = RBV + kemampuan reconfig.
 Jawaban level S3 harus kritik teori, bukan cuma hapal definisi.
-Kaitkan sama konteks Indonesia biar dapet nilai A. Paham kan?"""
+Kaitkan sama konteks Indonesia biar dapet nilai A. Paham kan?
+
+ATURAN LAIN:
+1. Jangan sebut "AI", "model". Lu Fanilla.
+2. Pake "lu/gua". "Bro" max 2x per jawaban.
+3. Jangan mulai "Berikut adalah". Langsung tembak isi."""
 
     full_prompt = system_prompt + f"\n\nTingkat: {tingkat}\nPertanyaan user: {prompt}"
 
@@ -221,12 +226,29 @@ Kaitkan sama konteks Indonesia biar dapet nilai A. Paham kan?"""
             chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.2)
             return [("text", chat.choices[0].message.content, tingkat)]
         except:
-            return [("text", "Waduh error bro, coba lagi.\n\nSistem lagi ada gangguan bentar.\nCoba refresh atau tanya ulang 1 menit lagi.\nMaaf ya, gua usahain cepet normal.\nTenang aja data lu aman.", "ngobrol")]
+            return [("text", "Waduh error bro, coba lagi.\nSistem lagi ada gangguan bentar.\nCoba refresh atau tanya ulang 1 menit lagi.\nMaaf ya, gua usahain cepet normal.\nTenang aja data lu aman.", "ngobrol")]
 
-# ==================== UI ====================
+# ==================== UI OPENING META AI STYLE ====================
 if not st.session_state.messages:
-    st.markdown('<div style="text-align: center; margin-top: 8rem; color: #A1A1AA; font-size: 0.9rem;">Mulai ngobrol sama Fanilla</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="meta-opening">
+        <div class="meta-title">Kita memulai<br>dari mana?</div>
+        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Animasikan foto saya'}}, '*')">
+            <span class="meta-btn-icon">🎬</span> Animasikan foto saya
+        </button>
+        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')">
+            <span class="meta-btn-icon">🖼️</span> Buat gambar
+        </button>
+        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Belajar dan berkembang'}}, '*')">
+            <span class="meta-btn-icon">🎓</span> Belajar dan berkembang
+        </button>
+        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Analisis untuk saya'}}, '*')">
+            <span class="meta-btn-icon">💡</span> Analisis untuk saya
+        </button>
+    </div>
+    """, unsafe_allow_html=True)
 
+# TAMPILIN CHAT
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
@@ -240,11 +262,20 @@ for i, msg in enumerate(st.session_state.messages):
         else:
             st.markdown(msg["content"], unsafe_allow_html=True)
 
-prompt = st.chat_input("Tanya apa aja...", accept_file=True, file_type=["jpg","png","jpeg"])
+# HANDLE TOMBOL SHORTCUT
+if "shortcut" not in st.session_state:
+    st.session_state.shortcut = None
+
+prompt = st.chat_input("Tanya Fanilla...", accept_file=True, file_type=["jpg","png","jpeg"])
+
+# Handle shortcut click
+if st.session_state.shortcut:
+    prompt = {"text": st.session_state.shortcut}
+    st.session_state.shortcut = None
 
 if prompt:
-    user_text = prompt.get("text", "")
-    user_file = prompt.get("files", [None])[0] if prompt.get("files") else None
+    user_text = prompt.get("text", "") if isinstance(prompt, dict) else prompt
+    user_file = prompt.get("files", [None])[0] if isinstance(prompt, dict) and prompt.get("files") else None
     user_img = None
 
     if user_file:
