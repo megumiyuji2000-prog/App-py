@@ -10,8 +10,13 @@ import io
 import urllib.parse
 import base64
 import re
-from gtts import gTTS
-import speech_recognition as sr
+
+# Voice libs - pake try biar gak crash kalau gagal install
+try:
+    from gtts import gTTS
+    TTS_AVAILABLE = True
+except:
+    TTS_AVAILABLE = False
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="wide", initial_sidebar_state="collapsed")
 
@@ -25,7 +30,6 @@ except:
 if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_count" not in st.session_state: st.session_state.chat_count = 0
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
-if "voice_text" not in st.session_state: st.session_state.voice_text = ""
 
 MAX_CHAT = 25
 jakarta_tz = pytz.timezone('Asia/Jakarta')
@@ -56,11 +60,8 @@ html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,heade
 [data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}
 [data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}
 .orion-toast{{position:fixed;top:70px;right:20px;z-index:9999;background:{T['chat_bg']};color:{T['text']};padding:12px 16px;border-radius:12px;border:1px solid {T['border']};box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;gap:12px;max-width:320px;animation:slideIn.3s ease}}
-.orion-toast-close{{background:none;border:none;color:{T['badge_text']};font-size:18px;cursor:pointer;padding:0 4px}}
 .tts-btn{{background:{T['badge_bg']};border:1px solid {T['border']};border-radius:8px;padding:6px 12px;margin-top:8px;cursor:pointer;font-size:0.85rem;color:{T['badge_text']};display:inline-flex;align-items:center;gap:6px}}
 .tts-btn:hover{{background:{T['user_bg']};color:{T['text']}}}
-.voice-btn{{position:fixed!important;bottom:88px!important;left:20px!important;width:36px!important;height:36px!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:50%!important;z-index:998!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 8px rgba(0,0,0,.25)!important}}
-.voice-btn:hover{{background:{T['user_bg']}!important}}
 @keyframes slideIn{{from{{transform:translateX(100%);opacity:0}}to{{transform:translateX(0);opacity:1}}}}
 </style>
 """, unsafe_allow_html=True)
@@ -78,24 +79,9 @@ def show_custom_toast(msg, icon="🎤"):
     ph = st.empty(); tid = f"toast_{int(time.time()*1000)}"
     ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span><button class="orion-toast-close" onclick="document.getElementById('{tid}').remove()">×</button></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},5000);</script>""", unsafe_allow_html=True)
 
-def voice_to_text():
-    try:
-        r = sr.Recognizer()
-        with sr.Microphone() as source:
-            show_custom_toast("Mendengarkan... Ngomong sekarang", "🎤")
-            r.adjust_for_ambient_noise(source, duration=0.5)
-            audio = r.listen(source, timeout=5, phrase_time_limit=10)
-        show_custom_toast("Memproses suara...", "⏳")
-        text = r.recognize_google(audio, language='id-ID')
-        return text
-    except sr.WaitTimeoutError:
-        show_custom_toast("Gak ada suara terdeteksi", "⚠️"); return ""
-    except sr.UnknownValueError:
-        show_custom_toast("Gak paham yang diomongin, coba lagi", "⚠️"); return ""
-    except Exception as e:
-        show_custom_toast(f"Mic error: Browser mungkin gak support", "❌"); return ""
-
 def text_to_speech(text):
+    if not TTS_AVAILABLE:
+        show_custom_toast("TTS tidak tersedia di server", "❌"); return None
     try:
         text_clean = re.sub(r'[#*`\-]', '', text)[:500]
         tts = gTTS(text=text_clean, lang='id', slow=False)
@@ -121,13 +107,8 @@ def extract_keyword_produk(text):
 def deteksi_tingkat(t):
     t = t.lower()
     if any(k in t for k in ["solusi","pecahkan","selesaikan","masalah","problem","gimana caranya","bantu atasi","jalan keluar","saran","bingung","pusing","rusak","copot","hilang","patah"]): return "problem_solver"
-    if any(k in t for k in ["s3","disertasi","rbv","dynamic capabilities","transformer","freire","dekonstruksi","backpropagation","doktoral"]): return "kuliah"
     if any(k in t for k in ["ubah jadi","jadiin","remix","ganti style","versi","ganti jadi"]) and st.session_state.last_generated_prompt: return "remix"
     if any(k in t for k in ["gambar","bikin","lukis","draw","buatin","generate"]): return "image"
-    if any(k in t for k in ["sd","kelas 1","kelas 2","kelas 3","kelas 4","kelas 5","kelas 6","penjumlahan","perkalian","untuk anak"]): return "sd"
-    if any(k in t for k in ["smp","kelas 7","kelas 8","kelas 9","aljabar","persamaan"]): return "smp"
-    if any(k in t for k in ["sma","kelas 10","kelas 11","kelas 12","utbk","snbt","limit","turunan","integral"]): return "sma"
-    if any(k in t for k in ["kuliah","kalkulus","aljabar linear","statistik","matkul","universitas"]): return "kuliah"
     return "ngobrol"
 
 def generate_gambar(p):
@@ -137,7 +118,7 @@ def generate_gambar(p):
     except: return None, "Terjadi kesalahan, silakan coba lagi"
 
 def remix_gambar_hasil_generate(pr):
-    if not st.session_state.last_generated_prompt: return None, "Buat gambar dulu baru bisa di-remix. Contoh: 'buatkan gambar kucing'"
+    if not st.session_state.last_generated_prompt: return None, "Buat gambar dulu baru bisa di-remix"
     show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "✨"); fp = f"{st.session_state.last_generated_prompt}, {pr}"; st.session_state.last_generated_prompt = fp
     url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(fp[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
     try: r = requests.get(url, timeout=45); return (Image.open(io.BytesIO(r.content)).convert("RGB"), None) if r.status_code == 200 else (None, "Gagal me-remix gambar")
@@ -162,7 +143,6 @@ ATURAN PRODUK: User butuh barang pengganti. Setelah solusi, WAJIB tambahkan:
 Berikut link untuk mencari "{keyword}":
 - **Shopee**: [Cari di Shopee](https://shopee.co.id/search?keyword={urllib.parse.quote(keyword)})
 - **Tokopedia**: [Cari di Tokopedia](https://www.tokopedia.com/search?st=product&q={urllib.parse.quote(keyword)})
-Jelaskan spesifikasi yang cocok untuk masalah user.
 """ if perlu_link else "ATURAN PRODUK: User hanya butuh tutorial. JANGAN berikan link produk."
 
     sys_p = f"""Anda adalah Orion, asisten AI yang sangat cerdas, teliti, dan akurat. Tanggal: {tgl}.
@@ -202,40 +182,38 @@ ATURAN TEKNIS:
         except: return [("text", "Mohon maaf, terjadi gangguan sistem. Silakan coba lagi.", "ngobrol")]
 
 if not st.session_state.messages:
-    st.markdown(f"""<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Bantu selesaikan masalah saya'}}, '*')"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Belajar dan berkembang'}}, '*')"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>""", unsafe_allow_html=True)
 
-if MAX_CHAT - st.session_state.chat_count == 3: st.toast("Sesi ngobrol hampir habis, persiapkan pertanyaan terakhir Anda", icon="⚠️")
+if MAX_CHAT - st.session_state.chat_count == 3: st.toast("Sesi ngobrol hampir habis", icon="⚠️")
 
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
-            bc = msg.get("tingkat", "ngobrol"); bt = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 KULIAH", "ngobrol": "💬 NGOBROL", "problem_solver": "💡 SOLUSI"}.get(bc, "💬")
+            bc = msg.get("tingkat", "ngobrol"); bt = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "ngobrol": "💬 NGOBROL", "problem_solver": "💡 SOLUSI"}.get(bc, "💬")
             st.markdown(f'<div class="orion-badge {bc}">{bt}</div>', unsafe_allow_html=True)
         if msg["type"] == "image":
             st.image(msg["content"], use_container_width=True)
             st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"orion_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
         else: 
             st.markdown(msg["content"], unsafe_allow_html=True)
-            if msg["role"] == "assistant" and msg["type"] == "text":
+            if msg["role"] == "assistant" and msg["type"] == "text" and TTS_AVAILABLE:
                 if st.button("🔊 Dengarkan", key=f"tts_{i}", help="Bacakan jawaban"):
                     audio_fp = text_to_speech(msg["content"])
                     if audio_fp: st.audio(audio_fp, format='audio/mp3')
 
-col1, col2, col3 = st.columns([1, 8, 1])
-with col1:
-    if st.button("🎤", key="voice-btn", help="Ngomong aja"):
-        st.session_state.voice_text = voice_to_text(); st.rerun()
-with col3:
-    if len(st.session_state.messages) > 3:
+if len(st.session_state.messages) > 3:
+    col1, col2 = st.columns([10, 1])
+    with col2:
         if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
             st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
 
-prompt_val = st.session_state.voice_text if st.session_state.voice_text else None
-st.session_state.voice_text = ""
+# Voice to Text pake st.audio_input - lebih stabil di Streamlit Cloud
+audio_value = st.audio_input("Rekam suara", key="audio_recorder")
+if audio_value:
+    show_custom_toast("Audio diterima. Fitur Speech-to-Text butuh API tambahan", "ℹ️")
+    # Kalau mau STT beneran, upload audio ke Whisper API. Sekarang cuma demo dulu.
 
-prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"], key="chat_input")
-
-if prompt_val: prompt = type('obj', (object,), {'text': prompt_val, 'files': []})()
+prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
 if prompt:
     if st.session_state.chat_count >= MAX_CHAT: st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏"); st.stop()
