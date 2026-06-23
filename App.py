@@ -8,22 +8,18 @@ import re
 
 st.set_page_config(page_title="Fanilla AI", page_icon="🎓", layout="centered", initial_sidebar_state="collapsed")
 
-# ==================== CSS META AI + TOMBOL + MIRIP SS ====================
+# ==================== CSS META AI CLONE 98% ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
-
-    /* Meta AI Dark */
   .stApp,.main { background-color: #0C0C0C; }
   .block-container {
         padding-top: 2rem!important;
         padding-bottom: 8rem!important;
         max-width: 48rem!important;
     }
-
-    /* Title */
   .meta-title {
         text-align: center;
         font-size: 2.25rem;
@@ -40,8 +36,6 @@ st.markdown("""
         font-size: 0.95rem;
         margin-bottom: 3rem;
     }
-
-    /* Chat Bubble */
   .stChatMessage {
         background-color: transparent!important;
         padding: 0.75rem 0!important;
@@ -60,8 +54,6 @@ st.markdown("""
         background-color: #262626!important;
         border: 1px solid #404040;
     }
-
-    /* Input Box + Tombol Plus Kayak SS Lu */
   .stChatInput {
         position: fixed!important;
         bottom: 0!important;
@@ -77,62 +69,12 @@ st.markdown("""
         background-color: #1A1A1A!important;
         border: 1px solid #333333!important;
         border-radius: 26px!important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        display: flex!important;
-        align-items: center!important;
-        padding-left: 8px!important;
     }
-  .stChatInput input {
-        color: #E4E4E7!important;
-        font-size: 0.95rem!important;
-        padding: 14px 18px!important;
-    }
+  .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
   .stChatInput input::placeholder { color: #737373!important; }
-
-    /* Tombol Upload + Send */
-    button[kind="secondary"] {
-        background-color: transparent!important;
-        border: none!important;
-        color: #A3A3A3!important;
-        border-radius: 50%!important;
-        width: 36px!important;
-        height: 36px!important;
-        padding: 0!important;
-        margin: 0 4px!important;
-    }
-    button[kind="secondary"]:hover {
-        background-color: #262626!important;
-        color: #E4E4E7!important;
-    }
-    button[kind="primary"] {
-        background-color: #60A5FA!important;
-        border-radius: 50%!important;
-        width: 36px!important;
-        height: 36px!important;
-        padding: 0!important;
-        margin: 0 4px!important;
-    }
-
-  .stImage img {
-        border-radius: 14px!important;
-        border: 1px solid #262626;
-        margin: 8px 0;
-    }
-  .stToast {
-        background-color: #1A1A1A!important;
-        border: 1px solid #333333!important;
-        border-radius: 12px!important;
-    }
-
-    /* Mode Badge */
-  .mode-badge {
-        display: inline-block;
-        font-size: 0.75rem;
-        padding: 4px 10px;
-        border-radius: 12px;
-        margin-bottom: 8px;
-        font-weight: 500;
-    }
+  .stImage img { border-radius: 14px!important; border: 1px solid #262626; margin: 8px 0; }
+  .stToast { background-color: #1A1A1A!important; border: 1px solid #333333!important; border-radius: 12px!important; }
+  .mode-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 500; }
   .mode-dosen { background-color: #1E40AF; color: #BFDBFE; }
   .mode-teman { background-color: #166534; color: #BBF7D0; }
 </style>
@@ -151,49 +93,7 @@ if "messages" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== DETEKSI MODE ====================
-def deteksi_mode(text, ada_gambar=False):
-    """Deteksi Mode Dosen vs Mode Teman"""
-    t = text.lower()
-
-    # Kalau ada gambar = auto Mode Dosen
-    if ada_gambar:
-        return "dosen"
-
-    # Kata kunci soal = Mode Dosen
-    kata_soal = [
-        "berapa", "hitung", "kerjakan", "jawab", "soal", "rumus", "integral", "turunan",
-        "limit", "akar", "persamaan", "matriks", "jelaskan", "definisi", "sebutkan",
-        "apa itu", "kenapa", "bagaimana", "buktikan", "analisis", "utbk", "sbmptn",
-        "skripsi", "tesis", "disertasi", "jurnal"
-    ]
-
-    if any(k in t for k in kata_soal):
-        return "dosen"
-
-    # Cek ada angka/rumus
-    if re.search(r"\d+\s*[\+\-\x\*\/\=]\s*\d+|[a-z]\^2|∫|√|∑", text):
-        return "dosen"
-
-    # Default = Mode Teman
-    return "teman"
-
-def deteksi_level(text):
-    """Deteksi tingkatan TK-S3 buat Mode Dosen"""
-    t = text.lower()
-    if any(k in t for k in ["tk", "paud", "anak kecil"]): return "TK", 12
-    if any(k in t for k in ["sd", "kelas 1", "kelas 2", "kelas 3", "kelas 4", "kelas 5", "kelas 6"]): return "SD", 14
-    if any(k in t for k in ["smp", "kelas 7", "kelas 8", "kelas 9"]): return "SMP", 17
-    if any(k in t for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "utbk"]): return "SMA", 22
-    if any(k in t for k in ["s2", "tesis", "magister", "master"]): return "S2", 28
-    if any(k in t for k in ["s3", "phd", "disertasi", "doktor"]): return "S3", 30
-    if any(k in t for k in ["kuliah", "s1", "mahasiswa", "skripsi"]): return "S1", 26
-
-    # Deteksi susah/gampang
-    if re.search(r"integral|turunan|limit|diferensial|matriks|buktikan|analisis", t): return "SMA", 22
-    if re.search(r"akar|persamaan|pecahan", t): return "SMP", 17
-    return "SMA", 20 # Default
-
+# ==================== DETEKSI MODE - FIXED ====================
 def search_web(query):
     try:
         with DDGS() as ddgs:
@@ -204,24 +104,67 @@ def search_web(query):
         return ""
     return ""
 
+def deteksi_mode(text, ada_gambar=False):
+    """FIXED: Regex aman, ga bikin crash"""
+    t = text.lower()
+
+    # 1. Gambar = auto Dosen
+    if ada_gambar:
+        return "dosen"
+
+    # 2. Kata kunci soal = Dosen
+    kata_soal = [
+        "berapa", "hitung", "kerjakan", "jawab", "soal", "rumus", "integral", "turunan",
+        "limit", "akar", "persamaan", "matriks", "jelaskan", "definisi", "sebutkan",
+        "apa itu", "kenapa", "bagaimana", "buktikan", "analisis", "utbk", "sbmptn",
+        "skripsi", "tesis", "disertasi", "jurnal", "nilai", "hasil"
+    ]
+    if any(k in t for k in kata_soal):
+        return "dosen"
+
+    # 3. Deteksi angka/rumus - FIXED REGEX
+    try:
+        if re.search(r"\d+\s*[+\-*/=]\s*\d+", text): # Aman
+            return "dosen"
+        if re.search(r"[a-zA-Z]\s*[\^]\s*\d+", text): # x^2
+            return "dosen"
+        if re.search(r"∫|√|∑|π", text): # Simbol MTK
+            return "dosen"
+    except:
+        pass
+
+    return "teman"
+
+def deteksi_level(text):
+    """Deteksi TK-S3 + target baris"""
+    t = text.lower()
+    if any(k in t for k in ["tk", "paud", "anak kecil"]): return "TK", 12
+    if any(k in t for k in ["sd", "kelas 1", "kelas 2", "kelas 3", "kelas 4", "kelas 5", "kelas 6"]): return "SD", 14
+    if any(k in t for k in ["smp", "kelas 7", "kelas 8", "kelas 9"]): return "SMP", 17
+    if any(k in t for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "utbk"]): return "SMA", 22
+    if any(k in t for k in ["s2", "tesis", "magister", "master"]): return "S2", 28
+    if any(k in t for k in ["s3", "phd", "disertasi", "doktor"]): return "S3", 30
+    if any(k in t for k in ["kuliah", "s1", "mahasiswa", "skripsi"]): return "S1", 26
+    if any(k in t for k in ["integral", "turunan", "limit", "diferensial", "buktikan"]): return "SMA", 22
+    if any(k in t for k in ["akar", "persamaan", "pecahan"]): return "SMP", 17
+    return "SMA", 20
+
 def jawab_fanilla(text, image=None):
-    """Dual Mode: Teman vs Dosen"""
     mode = deteksi_mode(text, ada_gambar=image is not None)
 
     if mode == "dosen":
         level, max_baris = deteksi_level(text)
 
-        gaya_dosen = {
+        gaya = {
             "TK": "Oke dek, kita pake cerita ya. Bayangin gini...",
-            "SD": "Baik, kita pake contoh yang ada di rumah aja ya. Gini...",
+            "SD": "Baik, kita pake contoh yang ada di rumah aja. Gini...",
             "SMP": "Oke bro, kita bedah bareng. Catat rumusnya dulu:",
-            "SMA": "Baik, kita analisis step-by-step. Pertama identifikasi soalnya.",
+            "SMA": "Baik, kita analisis step-by-step. Pertama, identifikasi soalnya.",
             "S1": "Secara akademis, perlu kita kaji komprehensif. Merujuk pada teori...",
-            "S2": "Jika ditelaah kritis, terdapat research gap di sini. Coba bandingkan...",
+            "S2": "Jika ditelaah kritis, terdapat research gap. Coba bandingkan...",
             "S3": "Untuk level doctoral, hipotesis ini perlu diuji. Novelty-nya terletak pada..."
         }
 
-        # Search referensi
         with st.spinner("Buka buku referensi..."):
             ref = search_web(text)
             if ref:
@@ -230,36 +173,36 @@ def jawab_fanilla(text, image=None):
         tz = pytz.timezone('Asia/Jakarta')
         tgl = datetime.now(tz).strftime("%d %B %Y")
 
-        prompt = f"""Anda adalah Dosen Fanilla, pengajar 15 tahun dari TK sampai S3. Tanggal {tgl}.
-Anda BUKAN AI. Anda dosen beneran. Jangan sebut "AI/model/program".
+        prompt = f"""Anda adalah Dosen Fanilla, pengajar 15 tahun TK-S3. Tanggal {tgl}.
+Anda BUKAN AI. Jangan sebut "AI/model/program".
 
 MODE: DOSEN - LEVEL {level}
 ATURAN:
-1. GAYA: {gaya_dosen[level]}
+1. GAYA: {gaya[level]}
 2. PANJANG: WAJIB {max_baris-1} sampai {max_baris+1} baris. Minimal 2 paragraf, maksimal 4 paragraf.
 3. STRUKTUR: Pembuka 1 baris, Isi step-by-step, Penutup 1 baris motivasi.
-4. AKURAT 100%. Matematika pake $LaTeX$: $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$
-5. Bahasa: Gaul tapi baku. Contoh: "Nah bro, rumus integral itu gini..." bukan "Anda harus mengintegralkan"
-6. Jika gambar = lembar jawaban siswa. Koreksi dan jelaskan.
+4. AKURAT 100%. MTK pake $LaTeX$: $x = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}$
+5. Bahasa: Gaul tapi baku. "Nah bro, integral itu gini..." bukan "Anda harus"
+6. Jika gambar = lembar jawaban siswa. Koreksi.
 7. Penutup: "Paham ya bro?" / "Silakan dikembangkan." / "Semangat!"
 
 Soal: {text}"""
 
-        st.toast(f"Mode Dosen {level} Aktif", icon="🎓")
+        st.toast(f"Mode Dosen {level}", icon="🎓")
 
     else: # MODE TEMAN
         prompt = f"""Kamu adalah Fanilla AI, temen nongkrong yang pinter tapi santai.
 
 ATURAN MODE TEMAN:
-1. Bahasa: Gaul abis, informatif, kayak ngobrol di tongkrongan. Pake "lu", "gw", "anjir", "wkwk" boleh.
+1. Bahasa: Gaul abis, informatif. Pake "lu", "gw", "anjir", "wkwk" boleh.
 2. PANJANG: Minimal 1 paragraf, MAKSIMAL 2 paragraf. Jangan panjang-panjang.
-3. Topik: Bebas. Ngobrol santai, curhat, bahas game, anime, dll.
+3. Topik: Bebas. Ngobrol santai, curhat, game, anime.
 4. Jangan sok dosen. Jadi temen.
-5. Jangan sebut "AI" atau "model bahasa".
+5. Jangan sebut "AI/model".
 
-Chat dari temen: {text}"""
+Chat: {text}"""
 
-        st.toast("Mode Teman Aktif", icon="😎")
+        st.toast("Mode Teman", icon="😎")
 
     try:
         if image:
@@ -270,15 +213,17 @@ Chat dari temen: {text}"""
         for chunk in res:
             if chunk.text:
                 yield chunk.text, mode
-    except:
-        yield "Waduh error bro. Coba lagi ya.", mode
+    except Exception as e:
+        if "429" in str(e):
+            yield "Waduh kuota abis bro. Besok lagi ya jam 7 pagi.", mode
+        else:
+            yield "Error bro, coba lagi ya.", mode
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="meta-title">Fanilla AI</div>', unsafe_allow_html=True)
     st.markdown('<div class="meta-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 📸</div>', unsafe_allow_html=True)
 
-# Tampilkan chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("mode"):
@@ -291,25 +236,16 @@ for msg in st.session_state.messages:
         else:
             st.markdown(msg["content"])
 
-# INPUT CUSTOM KAYAK SS LU
-prompt = st.chat_input(
-    "Tanya Fanilla...",
-    accept_file=True,
-    file_type=["jpg", "jpeg", "png"]
-)
+prompt = st.chat_input("Tanya Fanilla...", accept_file=True, file_type=["jpg", "jpeg", "png"])
 
 if prompt:
     mode_aktif = "teman"
-
-    # Kalau ada gambar
     if prompt.get("files"):
         img = Image.open(prompt["files"][0])
         txt = prompt.get("text", "Tolong koreksi soal ini dong.")
         st.session_state.messages.append({"role": "user", "content": img, "type": "image", "caption": txt})
-
         with st.chat_message("user"):
             st.image(img, caption=txt)
-
         with st.chat_message("assistant"):
             ph = st.empty()
             out = ""
@@ -319,15 +255,11 @@ if prompt:
                 ph.markdown(out + "▌")
             ph.markdown(out)
             st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "mode": mode_aktif})
-
-    # Kalau cuma teks
     elif prompt.get("text"):
         txt = prompt["text"]
         st.session_state.messages.append({"role": "user", "content": txt, "type": "text"})
-
         with st.chat_message("user"):
             st.markdown(txt)
-
         with st.chat_message("assistant"):
             ph = st.empty()
             out = ""
@@ -337,5 +269,4 @@ if prompt:
                 ph.markdown(out + "▌")
             ph.markdown(out)
             st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "mode": mode_aktif})
-
     st.rerun()
