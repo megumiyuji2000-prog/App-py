@@ -7,6 +7,7 @@ import pytz
 import time
 import requests
 import io
+import urllib.parse
 
 st.set_page_config(
     page_title="Fanilla AI",
@@ -50,10 +51,8 @@ div[data-testid="stImage"] > img { border: none!important; background: transpare
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-    # BACKUP MODEL GAMBAR GEMINI - GRATIS JUGA
-    gemini_image_model = genai.GenerativeModel('gemini-2.0-flash-preview-image-generation')
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    HF_TOKEN = st.secrets.get("HF_TOKEN", None) # BIKIN OPTIONAL BUNG
+    HF_TOKEN = st.secrets.get("HF_TOKEN", None)
 except Exception as e:
     st.error(f"Waduh bro, API Key error: {e}")
     st.stop()
@@ -77,62 +76,57 @@ def deteksi_tingkat(text):
     if any(k in t for k in ["kuliah","kalkulus","aljabar linear","statistik","matkul","universitas"]): return "kuliah"
     return "ngobrol"
 
+def generate_gambar_pollinations(prompt):
+    try:
+        st.toast("Fanilla lagi ngelukis...", icon="🎨")
+        # POLLINATIONS.AI - GRATIS + CEPET + GA PERLU TOKEN BUNG
+        encoded_prompt = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+        response = requests.get(url, timeout=30)
+        if response.status_code == 200:
+            image = Image.open(io.BytesIO(response.content))
+            return image, None
+        else:
+            return None, f"Pollinations error: {response.status_code}"
+    except Exception as e:
+        return None, f"Pollinations tumbang: {str(e)[:50]}"
+
 def generate_gambar_flux(prompt):
     if not HF_TOKEN:
-        return None, "Bro HF_TOKEN belum diset di Secrets. FLUX ga bisa jalan 😭"
-
+        return None, "no_token"
     try:
         st.toast("Fanilla lagi ngelukis pake FLUX...", icon="⚡")
         API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
         response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=30)
-
         if response.status_code == 200:
             image = Image.open(io.BytesIO(response.content))
             return image, None
-        elif response.status_code == 503:
-            return None, "loading" # KODE BUAT FALLBACK
         else:
-            return None, f"FLUX error: {response.status_code}"
-    except Exception as e:
-        return None, f"FLUX tumbang: {str(e)[:50]}"
-
-def generate_gambar_gemini(prompt):
-    try:
-        st.toast("FLUX rame, ganti Gemini dulu...", icon="🎨")
-        response = gemini_image_model.generate_content(f"Generate an image: {prompt}")
-        for part in response.candidates[0].content.parts:
-            if part.inline_data:
-                image = Image.open(io.BytesIO(part.inline_data.data))
-                return image, None
-        return None, "Gemini gagal generate bro"
-    except Exception as e:
-        return None, f"Gemini error: {str(e)[:50]}"
+            return None, "flux_error"
+    except Exception:
+        return None, "flux_error"
 
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
 
-    # KALO USER MINTA GAMBAR - COBA FLUX DULU, GAGAL BARU GEMINI
+    # KALO USER MINTA GAMBAR - COBA FLUX DULU, GAGAL PAKE POLLINATIONS
     if tingkat == "image":
         st.session_state.req_count += 1
 
-        # 1. COBA FLUX DULU
+        # 1. COBA FLUX KALO ADA TOKEN
         img, error = generate_gambar_flux(prompt)
         if img:
             yield img, "image", "image"
             return
 
-        # 2. KALO FLUX LOADING/ERROR, PAKE GEMINI
-        if error == "loading" or "tumbang" in error or "HF_TOKEN" in error:
-            img, error2 = generate_gambar_gemini(prompt)
-            if img:
-                yield img, "image", "image"
-                return
-            else:
-                yield f"Anjir bro dua-duanya tumbang 😭 FLUX: {error} | Gemini: {error2}", "ngobrol", "error"
-                return
+        # 2. FALLBACK KE POLLINATIONS - INI PASTI JALAN BUNG
+        img, error2 = generate_gambar_pollinations(prompt)
+        if img:
+            yield img, "image", "image"
+            return
         else:
-            yield f"Anjir bro FLUX error: {error}", "ngobrol", "error"
+            yield f"Anjir bro dua-duanya tumbang 😭 FLUX: {error} | Pollinations: {error2}", "ngobrol", "error"
             return
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
@@ -233,7 +227,7 @@ if len(st.session_state.messages) == 0:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("tingkat") and msg["role"] == "assistant":
-            badge_map = {"sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 Kuliah", "ngobrol": "💬 Ngobrol", "image": "⚡ FLUX"}
+            badge_map = {"sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 Kuliah", "ngobrol": "💬 Ngobrol", "image": "🎨 IMAGE"}
             label = badge_map.get(msg["tingkat"], "💬 Ngobrol")
             model_badge = f"<span class='model-badge {msg.get('model','gemini')}'>{msg.get('model','gemini').upper()}</span>"
             st.markdown(f'<div class="fanilla-badge">{label}{model_badge}</div>', unsafe_allow_html=True)
