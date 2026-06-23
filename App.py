@@ -36,6 +36,12 @@ div[data-testid="stImage"] > img { border: none!important; background: transpare
 .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
 .gemini { background-color: #1e40af; color: #dbeafe; }
 .llama { background-color: #7c2d12; color: #ffedd5; }
+/* ANIMASI LOADING KAYAK GUA */
+.typing-indicator { display: flex; align-items: center; padding: 12px 16px; background-color: #18181B; border-radius: 18px; border: 1px solid #27272A; width: fit-content; }
+.typing-indicator span { height: 8px; width: 8px; background-color: #A78BFA; border-radius: 50%; display: inline-block; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out both; }
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -104,8 +110,7 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
     # ========== COBA GEMINI DULU ==========
     try:
-        time.sleep(2)
-        st.toast("Fanilla lagi mikir...", icon="🎓")
+        time.sleep(1.5) # Biar loadingnya keliatan
         if image:
             res = st.session_state.gemini_chat.send_message([full_prompt, image], stream=True)
         else:
@@ -125,7 +130,7 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
             st.toast("Gemini capek, ganti Llama dulu...", icon="⚡")
             try:
-                time.sleep(2)
+                time.sleep(1.5)
                 st.session_state.groq_history.append({"role": "user", "content": full_prompt})
 
                 chat = groq_client.chat.completions.create(
@@ -155,10 +160,10 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    # LOGO KECIL DI TENGAH ATAS - PAS DI LINGKARAN MERAH LU
+    # LOGO KECIL DI TENGAH ATAS
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
-        st.image("logo.png", width=80) # Kecil biar kayak icon
+        st.image("logo.png", width=80)
 
     st.markdown('<div class="fanilla-title">Fanilla AI</div>', unsafe_allow_html=True)
     st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 😎</div>', unsafe_allow_html=True)
@@ -189,12 +194,17 @@ if prompt:
         with st.chat_message("user"):
             st.image(img, caption=txt)
         with st.chat_message("assistant"):
+            # LOADING KAYAK GUA BUNG - 3 TITIK LONCAT-LONCAT
+            loading_ph = st.empty()
+            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span><span></span></div>', unsafe_allow_html=True)
+
             ph = st.empty()
             out = ""
             for c, t, m in kirim_ke_ai(txt, image=img):
                 out += c
                 tingkat_aktif = t
                 model_aktif = m
+                loading_ph.empty() # Hapus loading pas udah ada jawaban
                 ph.markdown(out + "▌")
             ph.markdown(out)
             st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
@@ -205,12 +215,17 @@ if prompt:
         with st.chat_message("user"):
             st.markdown(txt)
         with st.chat_message("assistant"):
+            # LOADING KAYAK GUA BUNG - 3 TITIK LONCAT-LONCAT
+            loading_ph = st.empty()
+            loading_ph.markdown('<div class="typing-indicator"><span></span><span></span><span></span></div>', unsafe_allow_html=True)
+
             ph = st.empty()
             out = ""
             for c, t, m in kirim_ke_ai(txt):
                 out += c
                 tingkat_aktif = t
                 model_aktif = m
+                loading_ph.empty() # Hapus loading pas udah ada jawaban
                 ph.markdown(out + "▌")
             ph.markdown(out)
             st.session_state.messages.append({"role": "assistant", "content": out, "type": "text", "tingkat": tingkat_aktif, "model": model_aktif})
