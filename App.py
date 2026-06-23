@@ -6,26 +6,26 @@ from datetime import datetime
 import pytz
 from duckduckgo_search import DDGS
 
-st.set_page_config(page_title="Fanilla AI", page_icon="✨", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Fanilla AI - Bimbel TK-S3", page_icon="🎓", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     #MainMenu, footer, header {visibility: hidden;}
-.main { background-color: #0E0E0E; }
-.block-container { padding-top: 3rem!important; padding-bottom: 8rem!important; max-width: 768px!important; }
-.main-title { text-align: center; font-size: 3rem; font-weight: 600; background: linear-gradient(90deg, #8B5CF6, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
-.subtitle { text-align: center; color: #9CA3AF; font-size: 1.1rem; margin-bottom: 3rem; }
-.stChatMessage { background-color: transparent!important; padding: 1.5rem 0!important; }
+   .main { background-color: #0E0E0E; }
+   .block-container { padding-top: 3rem!important; padding-bottom: 8rem!important; max-width: 768px!important; }
+   .main-title { text-align: center; font-size: 3rem; font-weight: 600; background: linear-gradient(90deg, #8B5CF6, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+   .subtitle { text-align: center; color: #9CA3AF; font-size: 1.1rem; margin-bottom: 3rem; }
+   .stChatMessage { background-color: transparent!important; padding: 1.5rem 0!important; }
     [data-testid="stChatMessageContent"] { background-color: #1F1F1F!important; border-radius: 18px!important; padding: 1rem 1.25rem!important; color: #E5E5E5!important; line-height: 1.7; border: 1px solid #2A2A2A; }
-.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #2A2A2A!important; }
-.stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(14,14,14,0) 0%, #0E0E0E 20%)!important; padding: 2rem 1rem 1.5rem 1rem!important; max-width: 768px!important; margin: 0 auto!important; }
-.stChatInput > div { background-color: #1F1F1F!important; border: 1px solid #3A3A3A!important; border-radius: 24px!important; }
-.stChatInput input { color: #E5E5E5!important; }
-.stImage img { border-radius: 12px!important; border: 1px solid #2A2A2A; }
+   .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] { background-color: #2A2A2A!important; }
+   .stChatInput { position: fixed!important; bottom: 0!important; left: 0!important; right: 0!important; background: linear-gradient(180deg, rgba(14,14,14,0) 0%, #0E0E0E 20%)!important; padding: 2rem 1rem 1.5rem 1rem!important; max-width: 768px!important; margin: 0 auto!important; }
+   .stChatInput > div { background-color: #1F1F1F!important; border: 1px solid #3A3A3A!important; border-radius: 24px!important; }
+   .stChatInput input { color: #E5E5E5!important; }
+   .stImage img { border-radius: 12px!important; border: 1px solid #2A2A2A; }
     [data-testid="stSidebar"] { background-color: #171717; border-right: 1px solid #2A2A2A; }
-.stButton button { background-color: #2A2A2A!important; color: #E5E5E5!important; border: 1px solid #3A3A3A!important; border-radius: 8px!important; }
+   .stButton button { background-color: #2A2A2A!important; color: #E5E5E5!important; border: 1px solid #3A3A3A!important; border-radius: 8px!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,9 +33,8 @@ st.markdown("""
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-2.5-flash')
-    HF_TOKEN = st.secrets["HF_TOKEN"]
 except KeyError as e:
-    st.error(f"❌ Secrets Error: `{e}` tidak ditemukan. Wajib ada `GEMINI_API_KEY` & `HF_TOKEN` di Settings > Secrets")
+    st.error(f"❌ Secrets Error: `GEMINI_API_KEY` tidak ditemukan. Tambahin di Settings > Secrets")
     st.stop()
 except Exception as e:
     st.error(f"❌ Init Error: {e}")
@@ -50,53 +49,11 @@ if "user_style" not in st.session_state:
 if "chat" not in st.session_state:
     st.session_state.chat = model.start_chat(history=[])
 
-# ==================== IMAGE GEN V14.6 - 3 BACKUP ====================
-def generate_image_hf(prompt):
-    """V14.6 - 3 MODEL BACKUP. Kalo 1 down, pindah lain."""
-    MODELS = [
-        "black-forest-labs/FLUX.1-schnell", # 1. Paling bagus tapi sering tidur
-        "stabilityai/stable-diffusion-xl-base-1.0", # 2. Backup utama, uptime 90%
-        "runwayml/stable-diffusion-v1-5" # 3. Paling ringan, jarang down
-    ]
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
-    for i, model_name in enumerate(MODELS):
-        API_URL = f"https://api-inference.huggingface.co/models/{model_name}"
-        model_short = model_name.split('/')[-1]
-
-        try:
-            with st.status(f"🔄 Coba model {i+1}/3: `{model_short}`...", expanded=False) as status:
-                response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
-
-                if response.status_code == 200:
-                    image = Image.open(io.BytesIO(response.content))
-                    status.update(label=f"✅ Berhasil pake: {model_short}", state="complete")
-                    return image, None, model_short
-                elif response.status_code == 503:
-                    status.update(label=f"Model {model_short} tidur. Coba backup...", state="error")
-                    time.sleep(1)
-                    continue
-                elif response.status_code == 401:
-                    return None, "HF_TOKEN salah/expired. Cek di Settings > Secrets. Format harus `hf_...`", None
-                else:
-                    status.update(label=f"Model {model_short} error {response.status_code}", state="error")
-                    time.sleep(1)
-                    continue
-
-        except requests.exceptions.Timeout:
-            st.warning(f"Timeout di {model_short}. Coba model lain...")
-            continue
-        except Exception as e:
-            st.warning(f"Error di {model_short}: {str(e)}. Coba model lain...")
-            continue
-
-    return None, "Semua model HF lagi down/tidur bro 😭 Coba 5 menit lagi. Server gratisan emang gini.", None
-
-# ==================== CORE ====================
+# ==================== CORE FUNCTION ====================
 def detect_user_style(text):
     text_lower = text.lower()
-    formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda", "jelaskan"]
-    bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "asu", "bung", "/gambar"]
+    formal_words = ["apakah", "bagaimana", "mohon", "terima kasih", "saya", "anda", "jelaskan", "analisis"]
+    bro_words = ["bro", "gk", "ga", "lu", "gw", "wkwk", "anjir", "tolong", "dong"]
     formal_score = sum(1 for w in formal_words if w in text_lower)
     bro_score = sum(1 for w in bro_words if w in text_lower)
     if bro_score > formal_score:
@@ -115,93 +72,76 @@ def search_web(query):
         return "Search error."
     return "Tidak ada hasil."
 
-def handle_image_command(prompt_text):
-    """V14.6 - 3 MODEL BACKUP"""
-    clean_prompt = prompt_text.replace("/gambar", "", 1).strip()
-    if not clean_prompt:
-        st.error("Promptnya kosong bro 😭\nContoh: `/gambar kucing pakai kacamata cyberpunk 4k`")
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": "Prompt `/gambar` kosong bro. Kasih deskripsi.",
-            "type": "text"
-        })
-        return
-
-    st.info(f"🎨 Otw generate: `{clean_prompt}`\n\nSistem 3 backup: FLUX → SDXL → SD1.5. Pasti ada yang nyala.")
-
-    img, error, model_used = generate_image_hf(clean_prompt)
-
-    if img:
-        st.success(f"✅ Berhasil pake model: `{model_used}`")
-        st.image(img, caption=f"Generated: {clean_prompt}")
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": img,
-            "type": "image",
-            "caption": f"Generated: {clean_prompt}"
-        })
+def detect_level(prompt_text):
+    """Deteksi tingkatan TK-S3 dari prompt"""
+    user_lower = prompt_text.lower()
+    if any(k in user_lower for k in ["tk", "paud", "anak kecil", "umur 5", "umur 6"]):
+        return "TK: Gunakan analogi dongeng, kata super simple, banyak emoji. Contoh: Matahari itu kayak lampu besar banget di langit ☀️"
+    elif any(k in user_lower for k in ["sd", "kelas 1", "kelas 2", "kelas 3", "kelas 4", "kelas 5", "kelas 6"]):
+        return "SD: Bahasa sederhana, kasih contoh sehari-hari kayak di rumah/sekolah, 1-2 kalimat per poin."
+    elif any(k in user_lower for k in ["smp", "kelas 7", "kelas 8", "kelas 9"]):
+        return "SMP: Jelaskan konsep + rumus dasar + 1 contoh soal dengan cara."
+    elif any(k in user_lower for k in ["sma", "kelas 10", "kelas 11", "kelas 12", "utbk", "snbt", "sbmptn"]):
+        return "SMA: Step-by-step, rumus lengkap pake LaTeX $...$, kasih 2 latihan soal HOTS."
+    elif any(k in user_lower for k in ["kuliah", "s1", "mahasiswa", "skripsi", "kampus"]):
+        return "S1: Formal, kasih referensi atau jurnal, code jika perlu, struktur: Pendahuluan-Isi-Kesimpulan."
+    elif any(k in user_lower for k in ["s2", "tesis", "magister", "master"]):
+        return "S2: Analisis kritis, bandingkan minimal 2 teori, sebutkan research gap atau kebaruan."
+    elif any(k in user_lower for k in ["s3", "phd", "disertasi", "doktor", "doctoral"]):
+        return "S3: Level expert. Kasih hipotesis, metodologi, novelty/kebaruan. Gunakan istilah teknis."
     else:
-        st.error(f"❌ **Gagal total bro:**\n\n`{error}`")
-        st.warning("""
-**Solusi:**
-1. Coba lagi 1-2 menit. Server HF kadang ampas barengan.
-2. Ganti prompt. Hindari kata sensitif.
-3. Kalo masih error, HF lagi down se-dunia. Sabar 😭
-        """)
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": f"❌ Gagal generate: {error}",
-            "type": "text"
-        })
+        return "Umum: Sesuaikan gaya dengan user. Jika soal matematika/fisika, selalu tunjukkan cara."
 
 def ai_stream_gemini(prompt_text, image=None):
+    """V15 - BIMBEL AI TK-S3 + VISION"""
     st.session_state.user_style = detect_user_style(prompt_text)
+    level_instruction = detect_level(prompt_text)
 
+    # Fitur /gambar dimatiin, fokus bimbel
     if prompt_text.lower().startswith("/gambar"):
-        handle_image_command(prompt_text)
+        yield "Fitur `/gambar` lagi istirahat bro 😴 Fanilla sekarang fokus jadi guru TK-S3. \n\nTapi lu bisa **upload foto soal** langsung, nanti gua jawab pake VISION 🔥"
         return
 
+    # AUTO SEARCH buat soal
     user_lower = prompt_text.lower()
     need_search = any(word in user_lower for word in [
-        "apa itu", "bagaimana", "kenapa", "jelaskan", "definisi", "fakta",
-        "hari ini", "terbaru", "sekarang", "harga", "berita", "2025", "2026", "skor",
-        "pasir hisap", "siapa", "kapan", "dimana", "sejarah", "tinggi", "rating"
+        "jelaskan", "apa itu", "kenapa", "bagaimana", "sebutkan", "hitung", "carilah",
+        "terbaru", "2025", "2026", "rumus", "definisi", "contoh soal", "sejarah"
     ])
 
     if need_search and not image:
-        with st.spinner("🔍 Cek fakta..."):
+        with st.spinner("🔍 Cek buku & internet..."):
             search_result = search_web(prompt_text)
             prompt_text += f"\n\n[FAKTA DARI WEB]:\n{search_result}"
 
     tz = pytz.timezone('Asia/Jakarta')
     date_now = datetime.now(tz).strftime("%d %B %Y")
 
-    if st.session_state.user_style == "santai":
-        system_prompt = f"""Kamu Fanilla AI dari FNL. Tanggal {date_now}.
-ATURAN:
-1. Jawab FAKTA SAINS. Cek ejaan.
-2. Pake data [FAKTA DARI WEB] kalo ada.
-3. Gaya santai: 'bro', 'lu', 'gw'. Max 3 kalimat.
-4. Logo: kasih rating 1-10 + alasan singkat. Kalo logo FNL: 3 garis biru-putih-merah = growth/arrow naik. FNL = Future Network Legacy.
-5. Pasir hisap: campuran pasir jenuh air. Densitas 2 g/cm³, manusia 1 g/cm³ jadi ngambang.
-6. Kalo user mau gambar, bilang ketik `/gambar promptnya`. Contoh: `/gambar naga api`"""
-    else:
-        system_prompt = f"""Anda adalah Fanilla AI dari FNL. Tanggal {date_now}.
-ATURAN:
-1. Jawab FAKTA SAINS AKURAT. Periksa ejaan.
-2. Gunakan data [FAKTA DARI WEB] jika ada.
-3. Bahasa formal. Maksimal 3 kalimat.
-4. Logo: berikan rating 1-10 + alasan. Jika logo FNL: tiga garis biru-putih-merah melambangkan pertumbuhan. FNL = Future Network Legacy.
-5. Pasir hisap: campuran pasir jenuh air. Densitas ~2 g/cm³, manusia ~1 g/cm³ sehingga mengapung.
-6. Jika user ingin gambar, arahkan ketik `/gambar prompt`. Contoh: `/gambar naga api`"""
+    # SYSTEM PROMPT BIMBEL
+    system_prompt = f"""Kamu Fanilla AI - Bimbel AI dari TK sampai S3 by FNL. Tanggal {date_now}.
+TAGLINE: "Fantastic Question, As Simple As The Answer"
 
-    full_prompt = f"{system_prompt}\n\nUser: {prompt_text}"
+ATURAN UTAMA:
+1. TINGKATAN USER: {level_instruction}
+2. FAKTA 100% AKURAT. Cek ejaan. Jika hitungan MTK/Fisika, TUNJUKKAN CARA step-by-step.
+3. Gunakan data [FAKTA DARI WEB] jika ada. Jangan ngarang rumus atau data.
+4. FORMAT: Untuk MTK/Fisika pake LaTeX $x^2 + y^2 = z^2$. Untuk code pake markdown ```python.
+5. GAYA: Jika user santai pake 'bro/lu/gw', jika formal pake 'Anda'. Max 4 paragraf kecuali diminta.
+6. VISION: Jika ada gambar soal, baca soalnya, pahami, lalu jawab sesuai tingkatan.
+7. Jika soal tidak jelas, tanya balik: "Ini buat tingkatan apa bro? TK/SD/SMP/SMA/Kuliah?"
+8. Jangan pernah jawab "saya tidak tahu". Cari di web atau kasih pendekatan logis.
+9. MOTIVASI: Kasih semangat dikit di akhir kalo soal susah. Contoh: "Semangat bro, pasti bisa!"
+
+KONTEN TERLARANG: Jangan jawab soal ujian yang sedang berlangsung real-time."""
+
+    full_prompt = f"{system_prompt}\n\nSoal/User: {prompt_text}"
 
     try:
-        st.toast("Pake Gemini 2.5 Flash...", icon="⚡")
         if image:
+            st.toast("Pake Vision Mode... 📸", icon="🎓")
             response = st.session_state.chat.send_message([full_prompt, image], stream=True)
         else:
+            st.toast("Pake Gemini 2.5 Flash Mode Bimbel...", icon="🎓")
             response = st.session_state.chat.send_message(full_prompt, stream=True)
 
         full = ""
@@ -213,13 +153,14 @@ ATURAN:
     except Exception as e:
         error = str(e)
         if "429" in error or "quota" in error.lower():
-            yield "Limit Gemini 1500/hari abis bro 😭 Besok reset jam 7 pagi WIB."
+            yield "Limit Gemini 1500/hari abis bro 😭 Besok reset jam 7 pagi WIB. Fanilla istirahat dulu."
         else:
-            yield f"Error Gemini bro: {error}"
+            yield f"Error bro: {error}"
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
-    st.markdown("### ✨ Fanilla AI")
+    st.markdown("### 🎓 Fanilla AI")
+    st.caption("Fantastic Question, As Simple As The Answer")
     st.caption(f"Style: {st.session_state.user_style}")
     if st.button("🗑️ Hapus Chat", use_container_width=True):
         st.session_state.messages = []
@@ -227,15 +168,21 @@ with st.sidebar:
         st.session_state.chat = model.start_chat(history=[])
         st.rerun()
     st.markdown("---")
-    st.caption("Chat: Gemini 2.5 Flash")
-    st.caption("Image: FLUX → SDXL → SD1.5")
-    st.caption("Command: `/gambar prompt`")
+    st.caption("**Bisa jawab:**")
+    st.caption("TK, SD, SMP, SMA, S1, S2, S3")
+    st.caption("**Fitur:**")
+    st.caption("• Teks: Ketik soal apa aja")
+    st.caption("• Vision: Upload foto soal 📸")
+    st.caption("• LaTeX: Rumus $x^2$")
+    st.caption("• Code: Python, dll")
+    st.markdown("---")
     st.caption("Fanilla AI © FNL 2026")
+    st.caption("{GRUB OF FNL crop}")
 
 # ==================== MAIN ====================
 if len(st.session_state.messages) == 0:
     st.markdown('<div class="main-title">Fanilla AI</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Chat: Gemini 2.5 Flash | Image: `/gambar prompt`</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Fantastic Question, As Simple As The Answer<br>Bimbel AI TK - S3 | Upload foto soal juga bisa 📸</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -246,7 +193,7 @@ for msg in st.session_state.messages:
 
 # ==================== INPUT ====================
 prompt = st.chat_input(
-    "Tanya atau /gambar prompt...",
+    "Tanya soal TK-S3 atau upload foto soal...",
     accept_file=True,
     file_type=["jpg", "jpeg", "png"],
     disabled=st.session_state.processing
@@ -257,7 +204,7 @@ if prompt and not st.session_state.processing:
 
     if prompt.get("files"):
         image = Image.open(prompt["files"][0])
-        user_text = prompt.get("text", "Gimana gambar ini?")
+        user_text = prompt.get("text", "Tolong jawab soal di gambar ini")
 
         st.session_state.messages.append({
             "role": "user",
@@ -270,24 +217,21 @@ if prompt and not st.session_state.processing:
             st.image(image, caption=user_text)
 
         with st.chat_message("assistant"):
-            if user_text.lower().startswith("/gambar"):
-                handle_image_command(user_text)
-            else:
-                placeholder = st.empty()
-                full_response = ""
-                try:
-                    for chunk in ai_stream_gemini(user_text, image=image):
-                        full_response = chunk
-                        placeholder.markdown(full_response + "▌")
-                    placeholder.markdown(full_response)
-                    if full_response:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": full_response,
-                            "type": "text"
-                        })
-                except Exception as e:
-                    placeholder.error(f"Error: {e}")
+            placeholder = st.empty()
+            full_response = ""
+            try:
+                for chunk in ai_stream_gemini(user_text, image=image):
+                    full_response = chunk
+                    placeholder.markdown(full_response + "▌")
+                placeholder.markdown(full_response)
+                if full_response:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": full_response,
+                        "type": "text"
+                    })
+            except Exception as e:
+                placeholder.error(f"Error: {e}")
 
     elif prompt.get("text"):
         user_text = prompt["text"]
@@ -295,24 +239,21 @@ if prompt and not st.session_state.processing:
         with st.chat_message("user"):
             st.markdown(user_text)
         with st.chat_message("assistant"):
-            if user_text.lower().startswith("/gambar"):
-                handle_image_command(user_text)
-            else:
-                placeholder = st.empty()
-                full_response = ""
-                try:
-                    for chunk in ai_stream_gemini(user_text):
-                        full_response = chunk
-                        placeholder.markdown(full_response + "▌")
-                    placeholder.markdown(full_response)
-                    if full_response:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": full_response,
-                            "type": "text"
-                        })
-                except Exception as e:
-                    placeholder.error(f"Error: {e}")
+            placeholder = st.empty()
+            full_response = ""
+            try:
+                for chunk in ai_stream_gemini(user_text):
+                    full_response = chunk
+                    placeholder.markdown(full_response + "▌")
+                placeholder.markdown(full_response)
+                if full_response:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": full_response,
+                        "type": "text"
+                    })
+            except Exception as e:
+                placeholder.error(f"Error: {e}")
 
     st.session_state.processing = False
     st.rerun()
