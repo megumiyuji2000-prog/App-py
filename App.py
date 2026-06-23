@@ -29,7 +29,8 @@ st.markdown("""
 .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
 .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
 .stChatInput input::placeholder { color: #71717A!important; }
-.stImage img { border-radius: 14px!important; border: 1px solid #27272A; margin: 8px 0; }
+/* INI YG NGILANGIN KOTAK ABU-ABU DI LOGO */
+div[data-testid="stImage"] > img { border: none!important; background: transparent!important; border-radius: 0!important; }
 .stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
 .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
 .model-badge { display: inline-block; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 6px; font-weight: 500; opacity: 0.7; }
@@ -144,15 +145,10 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    # LOGO FNL TANPA KOTAK - UDAH BENER BUNG
-    st.markdown(
-        """
-        <div style='text-align: center; margin-bottom: 1.5rem; margin-top: -1rem;'>
-            <img src='logo.png' width='130' style='border: none; background: transparent;'>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # LOGO FNL FIX FINAL - PAKE st.image + CSS BUAT ILANGIN BORDER
+    col1, col2, col3 = st.columns([3,2,3])
+    with col2:
+        st.image("logo.png", width=130)
 
     st.markdown('<div class="fanilla-title">Fanilla AI</div>', unsafe_allow_html=True)
     st.markdown('<div class="fanilla-subtitle">Fantastic Question, As Simple As The Answer<br>Ngobrol santai bisa, nanya soal juga bisa 😎</div>', unsafe_allow_html=True)
