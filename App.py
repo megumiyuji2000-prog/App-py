@@ -35,21 +35,22 @@ st.markdown(f"""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
     #MainMenu, footer, header {{visibility: hidden;}}
-  .stApp,.main {{ background-color: {THEME['bg']}; }}
-  .block-container {{ padding-top: 1rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
-  .fanilla-logo {{ position: fixed; top: 18px; left: 18px; z-index: 999; width: 36px; height: 36px; }}
-  .fanilla-logo img {{ border-radius: 8px; }}
+ .stApp,.main {{ background-color: {THEME['bg']}; }}
+ .block-container {{ padding-top: 1rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
+  /* LOGO POJOK KANAN ATAS */
+ .fanilla-logo {{ position: fixed; top: 18px; right: 18px; z-index: 999; width: 36px; height: 36px; }}
+ .fanilla-logo img {{ border-radius: 8px; }}
     /* OPENING META AI STYLE */
-  .meta-opening {{ margin-top: 25vh; margin-bottom: 2rem; }}
-  .meta-title {{ font-size: 2rem; font-weight: 700; color: {THEME['text']}; margin-bottom: 2rem; line-height: 1.2; }}
-  .meta-btn {{ display: block; width: 100%; text-align: left; padding: 14px 18px; margin-bottom: 12px; background-color: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 24px; color: {THEME['text']}; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }}
-  .meta-btn:hover {{ border-color: {THEME['primary']}; background-color: {THEME['user_chat_bg']}; }}
-  .meta-btn-icon {{ margin-right: 12px; font-size: 1.1rem; }}
+ .meta-opening {{ margin-top: 25vh; margin-bottom: 2rem; }}
+ .meta-title {{ font-size: 2rem; font-weight: 700; color: {THEME['text']}; margin-bottom: 2rem; line-height: 1.2; }}
+ .meta-btn {{ display: block; width: 100%; text-align: left; padding: 14px 18px; margin-bottom: 12px; background-color: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 24px; color: {THEME['text']}; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }}
+ .meta-btn:hover {{ border-color: {THEME['primary']}; background-color: {THEME['user_chat_bg']}; }}
+ .meta-btn-icon {{ margin-right: 12px; font-size: 1.1rem; }}
 
     [data-testid="stChatMessageContent"] {{ background-color: {THEME['chat_bg']}!important; border-radius: 18px!important; padding: 14px 18px!important; color: {THEME['text']}!important; border: 1px solid {THEME['border']}; line-height: 1.8; font-size: 0.95rem; }}
-  .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] {{ background-color: {THEME['user_chat_bg']}!important; }}
-  .stChatInput > div {{ background-color: {THEME['bg']}!important; border: 1px solid {THEME['input_border']}!important; border-radius: 24px!important; }}
-  .fanilla-badge {{ display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: {THEME['badge_bg']}; color: {THEME['badge_text']}; border: 1px solid {THEME['border']}; }}
+ .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] {{ background-color: {THEME['user_chat_bg']}!important; }}
+ .stChatInput > div {{ background-color: {THEME['bg']}!important; border: 1px solid {THEME['input_border']}!important; border-radius: 24px!important; }}
+ .fanilla-badge {{ display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: {THEME['badge_bg']}; color: {THEME['badge_text']}; border: 1px solid {THEME['border']}; }}
    [data-testid="stChatMessageContent"] h3 {{ font-size: 1rem!important; font-weight: 600!important; margin: 14px 0 6px 0!important; color: {THEME['text']}!important; }}
    [data-testid="stChatMessageContent"] ul {{ margin: 6px 0!important; padding-left: 18px!important; }}
    [data-testid="stChatMessageContent"] li {{ margin-bottom: 4px!important; }}
@@ -77,7 +78,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
 
-# ==================== FANILLA BRAIN V5.0 ====================
+# ==================== FANILLA BRAIN V5.1 ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["s3", "disertasi", "rbv", "dynamic capabilities", "transformer", "freire", "dekonstruksi", "backpropagation", "doktoral"]):
@@ -143,7 +144,7 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    # ========== PROMPT SEMPURNA V5.0 ==========
+    # ========== PROMPT SEMPURNA V5.1 ==========
     system_prompt = f"""Kamu adalah Fanilla. Asisten AI analitis, rapi, to the point. Tanggal: {tgl}.
 
 ATURAN PARAGRAF MUTLAK:
@@ -228,14 +229,11 @@ ATURAN LAIN:
         except:
             return [("text", "Waduh error bro, coba lagi.\nSistem lagi ada gangguan bentar.\nCoba refresh atau tanya ulang 1 menit lagi.\nMaaf ya, gua usahain cepet normal.\nTenang aja data lu aman.", "ngobrol")]
 
-# ==================== UI OPENING META AI STYLE ====================
+# ==================== UI OPENING - HAPUS ANIMASI ====================
 if not st.session_state.messages:
     st.markdown(f"""
     <div class="meta-opening">
         <div class="meta-title">Kita memulai<br>dari mana?</div>
-        <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Animasikan foto saya'}}, '*')">
-            <span class="meta-btn-icon">🎬</span> Animasikan foto saya
-        </button>
         <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')">
             <span class="meta-btn-icon">🖼️</span> Buat gambar
         </button>
