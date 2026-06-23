@@ -1,9 +1,6 @@
-streamlit
+streamlit>=1.38.0
 google-generativeai
 groq
 Pillow
 pytz
-pandas
-SpeechRecognition
 gTTS
-PyAudio
