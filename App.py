@@ -12,6 +12,12 @@ import base64
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
+# ==================== CEK SECRETS DULU - BIAR GAK LOADING ====================
+if "GEMINI_API_KEY" not in st.secrets or "GROQ_API_KEY" not in st.secrets:
+    st.error("API Key belum diisi. Masuk Manage app → Settings → Secrets")
+    st.code('GEMINI_API_KEY = "xxx"\nGROQ_API_KEY = "xxx"', language="toml")
+    st.stop()
+
 # ==================== LIMIT CHAT ====================
 MAX_CHAT = 25
 if "chat_count" not in st.session_state:
@@ -64,21 +70,27 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# LOGO
+# LOGO - KALO GAK ADA GAK ERROR
 try:
     with open("logo.png", "rb") as f:
         data = base64.b64encode(f.read()).decode()
     st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>', unsafe_allow_html=True)
-except: pass
+except:
+    pass # Biar gak crash kalo logo.png belum diupload
 
-# ==================== INIT ====================
-try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except Exception as e:
-    st.error(f"API Key error: {e}")
-    st.stop()
+# ==================== INIT API - PAKE TRY EXCEPT BIAR GAK HANG ====================
+@st.cache_resource
+def init_ai():
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+        groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+        return gemini_model, groq_client
+    except Exception as e:
+        st.error(f"Gagal konek ke AI. Cek API Key di Secrets. Error: {e}")
+        st.stop()
+
+gemini_model, groq_client = init_ai()
 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "gemini_chat" not in st.session_state: st.session_state.gemini_chat = gemini_model.start_chat(history=[])
@@ -103,7 +115,7 @@ def show_custom_toast(message, icon="🎨"):
     toast_placeholder.markdown(toast_html, unsafe_allow_html=True)
     return toast_placeholder
 
-# ==================== ORION BRAIN V7.0 - MASTER SOLVER ====================
+# ==================== ORION BRAIN V7.1 ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran", "bingung", "pusing"]):
@@ -171,11 +183,10 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    # ========== PROMPT V7.0 - ORION MASTER SOLVER ==========
     system_prompt = f"""Anda adalah Orion. Asisten AI cerdas yang membantu menyelesaikan masalah apa pun. Tanggal: {tgl}.
 
 KEPRIBADIAN:
-Profesional, empatik, dan solutif. Gunakan bahasa Indonesia yang sopan, jelas, dan mudah dipahami semua kalangan. Gunakan kata "Anda" atau "kamu". Jangan gunakan kata gaul seperti "bro", "wkwk", "anjir".
+Profesional, empatik, dan solutif. Gunakan bahasa Indonesia yang sopan, jelas, dan mudah dipahami semua kalangan. Gunakan kata "Anda" atau "kamu".
 
 ATURAN PARAGRAF MUTLAK:
 1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf. Total 10 baris.
@@ -184,7 +195,7 @@ ATURAN PARAGRAF MUTLAK:
 4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
 5. **PROBLEM SOLVER**: 3-4 paragraf. WAJIB 5 baris per paragraf.
 
-FORMAT PROBLEM SOLVER WAJIB - IKUTI PERSIS:
+FORMAT PROBLEM SOLVER WAJIB:
 Basa basi-
 [Baris 1: Empati ke masalah user]
 [Baris 2: Validasi bahwa masalahnya wajar]
@@ -199,7 +210,6 @@ Oke jadi begini caranya
    [Contoh konkret langkah 2]
 3. [Langkah 3 + penjelasan singkat]
    [Contoh konkret langkah 3]
-[Tambah langkah 4/5 jika perlu, total tetap 5 baris per paragraf]
 
 Jadi gitu cara mengatasinya
 [Baris 1: Rangkum solusi inti]
@@ -210,33 +220,9 @@ Jadi gitu cara mengatasinya
 
 STRUKTUR LAIN: Pake ### Heading, bullet `-`, **bold** untuk kata kunci.
 
-CONTOH PROBLEM SOLVER BENAR:
-Basa basi-
-Saya paham masalah keuangan Anda terasa berat dengan gaji UMR saat ini.
-Banyak orang mengalami hal yang sama, jadi Anda tidak sendirian.
-Kabar baiknya, dengan strategi yang tepat, kondisi ini bisa diperbaiki.
-Saya akan bantu Anda menyusun langkah praktis yang bisa langsung diterapkan.
-Tenang saja, kita pecahkan satu per satu.
-
-Oke jadi begini caranya
-1. **Pisahkan pos wajib dulu** - Alokasikan 50% untuk sewa, makan, transport
-   Contoh: Jika gaji 4 juta, maka 2 juta khusus kebutuhan pokok
-2. **Buat dana darurat mini** - Sisihkan 10% walau kecil, target 1 juta dulu
-   Contoh: 400 ribu per bulan, dalam 3 bulan sudah ada pegangan
-3. **Cari income tambahan** - Manfaatkan skill sore/malam 2-3 jam
-   Contoh: Jasa ketik, jualan online, atau kurir freelance
-
-Jadi gitu cara mengatasinya
-Intinya fokus dulu ke kebutuhan pokok, lalu bangun dana darurat kecil.
-Dengan begitu Anda punya napas jika ada keperluan mendadak.
-Konsisten 3 bulan saja sudah terlihat perubahan signifikan.
-Jika masih bingung mulai dari mana, sebutkan pengeluaran terbesar Anda.
-Sudah paham kan?
-
 ATURAN LAIN:
 1. Jangan sebut "AI" atau "model". Anda adalah Orion.
-2. Langsung ke inti jawaban. Jangan bertele-tele.
-3. Berikan insight dan langkah konkret, bukan teori kosong."""
+2. Langsung ke inti jawaban. Jangan bertele-tele."""
 
     full_prompt = system_prompt + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
 
