@@ -9,10 +9,11 @@ import requests
 import io
 import urllib.parse
 import base64
+import re
 
-st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
+st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="wide", initial_sidebar_state="collapsed")
 
-# ==================== CEK SECRETS DULU ====================
+# ==================== CEK SECRETS ====================
 try:
     GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
     GROQ_KEY = st.secrets["GROQ_API_KEY"]
@@ -21,10 +22,15 @@ except:
     st.code('GEMINI_API_KEY = "xxx"\nGROQ_API_KEY = "xxx"', language="toml")
     st.stop()
 
-# ==================== LIMIT CHAT ====================
+# ==================== MULTI CHAT SYSTEM ====================
+if "all_chats" not in st.session_state:
+    st.session_state.all_chats = {"chat_1": {"title": "Obrolan Baru", "messages": [], "chat_count": 0}}
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = "chat_1"
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = False
+
 MAX_CHAT = 25
-if "chat_count" not in st.session_state:
-    st.session_state.chat_count = 0
 
 # ==================== AUTO DARK/LIGHT ====================
 jakarta_tz = pytz.timezone('Asia/Jakarta')
@@ -42,18 +48,61 @@ THEME = {
     "input_border": "#A78BFA",
     "primary": "#A78BFA",
     "toast_bg": "#27272A" if IS_DARK else "#FFFFFF",
+    "sidebar_bg": "#18181B" if IS_DARK else "#FAFAFA",
 }
 
-# ==================== CSS ====================
+# ==================== CSS + AUTO SCROLL BUTTON ====================
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
     #MainMenu, footer, header {{visibility: hidden;}}
 .stApp,.main {{ background-color: {THEME['bg']}; }}
-.block-container {{ padding-top: 1rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
+.block-container {{ padding-top: 4rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
 .orion-logo {{ position: fixed; top: 18px; right: 18px; z-index: 999; width: 36px; height: 36px; }}
 .orion-logo img {{ border-radius: 8px; }}
+.hamburger-btn {{ position: fixed; top: 18px; left: 18px; z-index: 1000; width: 36px; height: 36px; background: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }}
+.hamburger-btn:hover {{ background: {THEME['user_chat_bg']}; }}
+.hamburger-icon {{ width: 18px; height: 2px; background: {THEME['text']}; position: relative; }}
+.hamburger-icon::before,.hamburger-icon::after {{ content: ''; position: absolute; width: 18px; height: 2px; background: {THEME['text']}; left: 0; }}
+.hamburger-icon::before {{ top: -5px; }}
+.hamburger-icon::after {{ top: 5px; }}
+.chat-title {{ position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 999; color: {THEME['text']}; font-weight: 600; font-size: 0.95rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+
+/* SIDEBAR */
+.sidebar {{ position: fixed; top: 0; left: -300px; width: 280px; height: 100vh; background: {THEME['sidebar_bg']}; border-right: 1px solid {THEME['border']}; z-index: 1001; transition: left 0.3s ease; overflow-y: auto; padding: 70px 16px 20px 16px; }}
+.sidebar.open {{ left: 0; }}
+.sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1000; display: none; }}
+.sidebar-overlay.show {{ display: block; }}
+.sidebar-item {{ padding: 12px 16px; margin-bottom: 4px; border-radius: 12px; color: {THEME['text']}; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 0.9rem; }}
+.sidebar-item:hover {{ background: {THEME['user_chat_bg']}; }}
+.sidebar-divider {{ height: 1px; background: {THEME['border']}; margin: 12px 0; }}
+.sidebar-section {{ color: {THEME['badge_text']}; font-size: 0.75rem; font-weight: 600; padding: 8px 16px; }}
+.chat-history-item {{ padding: 10px 16px; margin-bottom: 4px; border-radius: 12px; color: {THEME['text']}; cursor: pointer; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.chat-history-item:hover {{ background: {THEME['user_chat_bg']}; }}
+.chat-history-item.active {{ background: {THEME['user_chat_bg']}; }}
+
+/* TOMBOL AUTO SCROLL */
+#scroll-bottom-btn {{
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: {THEME['chat_bg']};
+    border: 1px solid {THEME['border']};
+    border-radius: 50%;
+    z-index: 999;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: all 0.2s;
+}}
+#scroll-bottom-btn:hover {{ background: {THEME['user_chat_bg']}; }}
+#scroll-bottom-btn svg {{ width: 20px; height: 20px; fill: {THEME['text']}; }}
+
 .meta-opening {{ margin-top: 25vh; margin-bottom: 2rem; }}
 .meta-title {{ font-size: 2rem; font-weight: 700; color: {THEME['text']}; margin-bottom: 2rem; line-height: 1.2; }}
 .meta-btn {{ display: block; width: 100%; text-align: left; padding: 14px 18px; margin-bottom: 12px; background-color: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 24px; color: {THEME['text']}; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }}
@@ -71,6 +120,25 @@ st.markdown(f"""
 .orion-toast-close {{ background: none; border: none; color: {THEME['badge_text']}; font-size: 18px; cursor: pointer; padding: 0 4px; }}
    @keyframes slideIn {{ from {{ transform: translateX(100%); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
 </style>
+
+<!-- TOMBOL AUTO SCROLL -->
+<button id="scroll-bottom-btn" onclick="window.scrollTo({{top: document.body.scrollHeight, behavior: 'smooth'}})">
+    <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+</button>
+
+<script>
+// AUTO SHOW/HIDE SCROLL BUTTON
+window.addEventListener('scroll', function() {{
+    const btn = document.getElementById('scroll-bottom-btn');
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const pageHeight = document.body.offsetHeight;
+    if (scrollPosition < pageHeight - 200) {{
+        btn.style.display = 'flex';
+    }} else {{
+        btn.style.display = 'none';
+    }}
+}});
+</script>
 """, unsafe_allow_html=True)
 
 # LOGO
@@ -81,13 +149,82 @@ try:
 except:
     pass
 
-# ==================== INIT API - GAK PAKE CACHE + GAK PAKE start_chat ====================
+# ==================== INIT API ====================
 genai.configure(api_key=GEMINI_KEY)
 gemini_model = genai.GenerativeModel('gemini-2.5-flash')
 groq_client = Groq(api_key=GROQ_KEY)
 
-if "messages" not in st.session_state: st.session_state.messages = []
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
+
+# ==================== FUNGSI SIDEBAR ====================
+def toggle_sidebar():
+    st.session_state.sidebar_open = not st.session_state.sidebar_open
+
+def new_chat():
+    chat_id = f"chat_{int(time.time())}"
+    st.session_state.all_chats[chat_id] = {"title": "Obrolan Baru", "messages": [], "chat_count": 0}
+    st.session_state.current_chat_id = chat_id
+    st.session_state.sidebar_open = False
+
+def switch_chat(chat_id):
+    st.session_state.current_chat_id = chat_id
+    st.session_state.sidebar_open = False
+
+# ==================== JUDUL OTOMATIS ====================
+def generate_title(text):
+    # Ambil inti kalimat, hapus kata tanya
+    text = re.sub(r'^(bisa|tolong|gimana|bagaimana|cara|bantu)\s+', '', text.lower())
+    text = text.strip().capitalize()
+    return text[:40] + "..." if len(text) > 40 else text
+
+# ==================== SIDEBAR HTML ====================
+current_chat = st.session_state.all_chats[st.session_state.current_chat_id]
+sidebar_html = f"""
+<div class="hamburger-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'toggle_sidebar'}}, '*')">
+    <div class="hamburger-icon"></div>
+</div>
+<div class="chat-title">{current_chat['title']}</div>
+
+<div class="sidebar-overlay {'show' if st.session_state.sidebar_open else ''}" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'toggle_sidebar'}}, '*')"></div>
+<div class="sidebar {'open' if st.session_state.sidebar_open else ''}">
+    <div class="sidebar-item" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'new_chat'}}, '*')">
+        <span>✏️</span> Obrolan baru
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-item"><span>✨</span> Vibes</div>
+    <div class="sidebar-item"><span>👓</span> Kacamata</div>
+    <div class="sidebar-item"><span>🖼️</span> Media</div>
+    <div class="sidebar-item"><span>🔔</span> Notifikasi</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Obrolan</div>
+"""
+
+for cid, chat in st.session_state.all_chats.items():
+    active = "active" if cid == st.session_state.current_chat_id else ""
+    sidebar_html += f"""
+    <div class="chat-history-item {active}" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'switch_{cid}'}}, '*')">
+        {chat['title']}
+    </div>
+    """
+
+sidebar_html += "</div>"
+st.markdown(sidebar_html, unsafe_allow_html=True)
+
+# HANDLE SIDEBAR CLICK
+if "component_value" in st.query_params:
+    val = st.query_params["component_value"]
+    if val == "toggle_sidebar":
+        toggle_sidebar()
+        st.query_params.clear()
+        st.rerun()
+    elif val == "new_chat":
+        new_chat()
+        st.query_params.clear()
+        st.rerun()
+    elif val.startswith("switch_"):
+        switch_chat(val.replace("switch_", ""))
+        st.query_params.clear()
+        st.rerun()
 
 # ==================== TOAST CUSTOM ====================
 def show_custom_toast(message, icon="🎨"):
@@ -107,7 +244,7 @@ def show_custom_toast(message, icon="🎨"):
     """
     toast_placeholder.markdown(toast_html, unsafe_allow_html=True)
 
-# ==================== ORION BRAIN V7.2 ====================
+# ==================== ORION BRAIN ====================
 def deteksi_tingkat(text):
     t = text.lower()
     if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran", "bingung", "pusing"]):
@@ -218,7 +355,6 @@ ATURAN LAIN:
 
     full_prompt = system_prompt + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
 
-    # GAK PAKE start_chat - LANGSUNG generate_content BIAR GAK HANG
     try:
         if image:
             res = gemini_model.generate_content([full_prompt, image])
@@ -238,7 +374,7 @@ ATURAN LAIN:
             return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.\nKami sedang mengupayakan perbaikan secepatnya.\nData Anda tetap aman.\nTerima kasih atas pengertiannya.", "ngobrol")]
 
 # ==================== UI OPENING ====================
-if not st.session_state.messages:
+if not current_chat['messages']:
     st.markdown(f"""
     <div class="meta-opening">
         <div class="meta-title">Ada yang bisa<br>Orion bantu?</div>
@@ -255,12 +391,12 @@ if not st.session_state.messages:
     """, unsafe_allow_html=True)
 
 # NOTIF LIMIT
-sisa_chat = MAX_CHAT - st.session_state.chat_count
+sisa_chat = MAX_CHAT - current_chat['chat_count']
 if sisa_chat == 3:
     st.toast("Sesi ngobrol hampir habis, persiapkan pertanyaan terakhir Anda", icon="⚠️")
 
 # TAMPILIN CHAT
-for i, msg in enumerate(st.session_state.messages):
+for i, msg in enumerate(current_chat['messages']):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
             badge_class = msg.get("tingkat", "ngobrol")
@@ -269,39 +405,4 @@ for i, msg in enumerate(st.session_state.messages):
 
         if msg["type"] == "image":
             st.image(msg["content"], use_container_width=True)
-            st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"orion_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
-        else:
-            st.markdown(msg["content"], unsafe_allow_html=True)
-
-# HANDLE INPUT - GAK PAKE st.rerun() BIAR GAK LOOP
-prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
-
-if prompt:
-    # CEK LIMIT
-    if st.session_state.chat_count >= MAX_CHAT:
-        st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏")
-        st.stop()
-
-    st.session_state.chat_count += 1
-
-    if hasattr(prompt, 'text'):
-        user_text = prompt.text
-        user_file = prompt.files[0] if prompt.files else None
-    else:
-        user_text = prompt.get("text", "") if isinstance(prompt, dict) else prompt
-        user_file = prompt.get("files", [None])[0] if isinstance(prompt, dict) and prompt.get("files") else None
-
-    user_img = None
-
-    if user_file:
-        user_img = Image.open(user_file).convert("RGB")
-        st.session_state.messages.append({"role": "user", "type": "image", "content": user_img})
-
-    if user_text:
-        st.session_state.messages.append({"role": "user", "type": "text", "content": user_text})
-
-    # PROSES AI
-    hasil = kirim_ke_ai(user_text, user_img)
-    for tipe, konten, *rest in hasil:
-        tingkat = rest[0] if rest else "ngobrol"
-        st.session_state.messages.append({"role": "assistant", "type": tipe, "content": konten, "tingkat": tingkat})
+          
