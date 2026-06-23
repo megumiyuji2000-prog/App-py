@@ -31,7 +31,6 @@ st.markdown("""
 .stChatInput > div { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 26px!important; box-shadow: 0 4px 12px rgba(167,139,250,0.2); }
 .stChatInput input { color: #E4E4E7!important; font-size: 0.95rem!important; padding: 14px 18px!important; }
 .stChatInput input::placeholder { color: #71717A!important; }
-/* ILANGIN KOTAK ABU-ABU LOGO */
 div[data-testid="stImage"] > img { border: none!important; background: transparent!important; border-radius: 0!important; margin-bottom: 0!important; }
 .stToast { background-color: #18181B!important; border: 1px solid #A78BFA!important; border-radius: 12px!important; }
 .fanilla-badge { display: inline-block; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; background-color: #27272A; color: #A78BFA; }
@@ -39,7 +38,6 @@ div[data-testid="stImage"] > img { border: none!important; background: transpare
 .gemini { background-color: #1e40af; color: #dbeafe; }
 .llama { background-color: #7c2d12; color: #ffedd5; }
 .image { background-color: #059669; color: #d1fae5; }
-/* ANIMASI LOADING */
 .typing-indicator { display: flex; align-items: center; padding: 12px 16px; background-color: #18181B; border-radius: 18px; border: 1px solid #27272A; width: fit-content; }
 .typing-indicator span { height: 8px; width: 8px; background-color: #A78BFA; border-radius: 50%; display: inline-block; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out both; }
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
@@ -52,10 +50,12 @@ div[data-testid="stImage"] > img { border: none!important; background: transpare
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+    # BACKUP MODEL GAMBAR GEMINI - GRATIS JUGA
+    gemini_image_model = genai.GenerativeModel('gemini-2.0-flash-preview-image-generation')
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    HF_TOKEN = st.secrets["HF_TOKEN"] # TOKEN FLUX BUNG
-except:
-    st.error("Waduh bro, API Key belum diset. Butuh GEMINI_API_KEY, GROQ_API_KEY, HF_TOKEN di Secrets.")
+    HF_TOKEN = st.secrets.get("HF_TOKEN", None) # BIKIN OPTIONAL BUNG
+except Exception as e:
+    st.error(f"Waduh bro, API Key error: {e}")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -78,35 +78,62 @@ def deteksi_tingkat(text):
     return "ngobrol"
 
 def generate_gambar_flux(prompt):
+    if not HF_TOKEN:
+        return None, "Bro HF_TOKEN belum diset di Secrets. FLUX ga bisa jalan 😭"
+
     try:
         st.toast("Fanilla lagi ngelukis pake FLUX...", icon="⚡")
         API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=30)
 
         if response.status_code == 200:
             image = Image.open(io.BytesIO(response.content))
             return image, None
         elif response.status_code == 503:
-            return None, "Anjir bro server FLUX lagi rame. Coba 20 detik lagi ya 🙏"
+            return None, "loading" # KODE BUAT FALLBACK
         else:
-            return None, f"Waduh error bro: {response.status_code}"
+            return None, f"FLUX error: {response.status_code}"
     except Exception as e:
-        return None, f"Error anjir: {str(e)[:80]}"
+        return None, f"FLUX tumbang: {str(e)[:50]}"
+
+def generate_gambar_gemini(prompt):
+    try:
+        st.toast("FLUX rame, ganti Gemini dulu...", icon="🎨")
+        response = gemini_image_model.generate_content(f"Generate an image: {prompt}")
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                image = Image.open(io.BytesIO(part.inline_data.data))
+                return image, None
+        return None, "Gemini gagal generate bro"
+    except Exception as e:
+        return None, f"Gemini error: {str(e)[:50]}"
 
 def kirim_ke_ai(prompt, image=None):
     tingkat = deteksi_tingkat(prompt)
 
-    # KALO USER MINTA GAMBAR - PAKE FLUX BUNG
+    # KALO USER MINTA GAMBAR - COBA FLUX DULU, GAGAL BARU GEMINI
     if tingkat == "image":
         st.session_state.req_count += 1
+
+        # 1. COBA FLUX DULU
         img, error = generate_gambar_flux(prompt)
         if img:
             yield img, "image", "image"
+            return
+
+        # 2. KALO FLUX LOADING/ERROR, PAKE GEMINI
+        if error == "loading" or "tumbang" in error or "HF_TOKEN" in error:
+            img, error2 = generate_gambar_gemini(prompt)
+            if img:
+                yield img, "image", "image"
+                return
+            else:
+                yield f"Anjir bro dua-duanya tumbang 😭 FLUX: {error} | Gemini: {error2}", "ngobrol", "error"
+                return
         else:
-            yield error, "ngobrol", "error"
-        return
+            yield f"Anjir bro FLUX error: {error}", "ngobrol", "error"
+            return
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
@@ -128,7 +155,7 @@ GAYA NGOMONG LU:
 4. JANGAN SEBUT "AI", "MODEL", "ASISTEN". Lu itu Fanilla, temennya user.
 5. JANGAN NGASIH CERAMAH PANJANG. To the point tapi tetep asik.
 
-KALO USER MINTA GAMBAR: Bilang "Oke bro gua buatin pake FLUX" terus diemin. Nanti sistem yg handle.
+KALO USER MINTA GAMBAR: Bilang "Oke bro gua buatin" terus diemin. Nanti sistem yg handle.
 
 ATURAN JAWAB:
 - TK-SD: 10-16 baris. Bahasa bocil: "Jadi gini adek, 2+2 itu kayak lu punya 2 permen...". Pake analogi makanan/mainan.
@@ -196,7 +223,6 @@ INTI: BIKIN USER NGERASA LAGI NANYA KE TEMEN PINTER, BUKAN LAGI LES."""
 
 # ==================== UI ====================
 if len(st.session_state.messages) == 0:
-    # LOGO KECIL DI TENGAH ATAS
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         st.image("logo.png", width=80)
