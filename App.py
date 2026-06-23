@@ -10,7 +10,7 @@ import io
 import urllib.parse
 import base64
 
-st.set_page_config(page_title="Fanilla AI", page_icon="logo.png", layout="centered")
+st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
 # ==================== LIMIT CHAT ====================
 MAX_CHAT = 25
@@ -43,8 +43,8 @@ st.markdown(f"""
     #MainMenu, footer, header {{visibility: hidden;}}
 .stApp,.main {{ background-color: {THEME['bg']}; }}
 .block-container {{ padding-top: 1rem!important; padding-bottom: 7rem!important; max-width: 42rem!important; }}
-.fanilla-logo {{ position: fixed; top: 18px; right: 18px; z-index: 999; width: 36px; height: 36px; }}
-.fanilla-logo img {{ border-radius: 8px; }}
+.orion-logo {{ position: fixed; top: 18px; right: 18px; z-index: 999; width: 36px; height: 36px; }}
+.orion-logo img {{ border-radius: 8px; }}
 .meta-opening {{ margin-top: 25vh; margin-bottom: 2rem; }}
 .meta-title {{ font-size: 2rem; font-weight: 700; color: {THEME['text']}; margin-bottom: 2rem; line-height: 1.2; }}
 .meta-btn {{ display: block; width: 100%; text-align: left; padding: 14px 18px; margin-bottom: 12px; background-color: {THEME['chat_bg']}; border: 1px solid {THEME['border']}; border-radius: 24px; color: {THEME['text']}; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }}
@@ -53,13 +53,13 @@ st.markdown(f"""
     [data-testid="stChatMessageContent"] {{ background-color: {THEME['chat_bg']}!important; border-radius: 18px!important; padding: 14px 18px!important; color: {THEME['text']}!important; border: 1px solid {THEME['border']}; line-height: 1.8; font-size: 0.95rem; }}
 .stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"] {{ background-color: {THEME['user_chat_bg']}!important; }}
 .stChatInput > div {{ background-color: {THEME['bg']}!important; border: 1px solid {THEME['input_border']}!important; border-radius: 24px!important; }}
-.fanilla-badge {{ display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: {THEME['badge_bg']}; color: {THEME['badge_text']}; border: 1px solid {THEME['border']}; }}
+.orion-badge {{ display: inline-block; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 600; background-color: {THEME['badge_bg']}; color: {THEME['badge_text']}; border: 1px solid {THEME['border']}; }}
    [data-testid="stChatMessageContent"] h3 {{ font-size: 1rem!important; font-weight: 600!important; margin: 14px 0 6px 0!important; color: {THEME['text']}!important; }}
    [data-testid="stChatMessageContent"] ul {{ margin: 6px 0!important; padding-left: 18px!important; }}
    [data-testid="stChatMessageContent"] li {{ margin-bottom: 4px!important; }}
    [data-testid="stChatMessageContent"] strong {{ color: #7C3AED!important; font-weight: 600!important; }}
-.fanilla-toast {{ position: fixed; top: 70px; right: 20px; z-index: 9999; background: {THEME['toast_bg']}; color: {THEME['text']}; padding: 12px 16px; border-radius: 12px; border: 1px solid {THEME['border']}; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; max-width: 320px; animation: slideIn 0.3s ease; }}
-.fanilla-toast-close {{ background: none; border: none; color: {THEME['badge_text']}; font-size: 18px; cursor: pointer; padding: 0 4px; }}
+.orion-toast {{ position: fixed; top: 70px; right: 20px; z-index: 9999; background: {THEME['toast_bg']}; color: {THEME['text']}; padding: 12px 16px; border-radius: 12px; border: 1px solid {THEME['border']}; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; max-width: 320px; animation: slideIn 0.3s ease; }}
+.orion-toast-close {{ background: none; border: none; color: {THEME['badge_text']}; font-size: 18px; cursor: pointer; padding: 0 4px; }}
    @keyframes slideIn {{ from {{ transform: translateX(100%); opacity: 0; }} to {{ transform: translateX(0); opacity: 1; }} }}
 </style>
 """, unsafe_allow_html=True)
@@ -68,7 +68,7 @@ st.markdown(f"""
 try:
     with open("logo.png", "rb") as f:
         data = base64.b64encode(f.read()).decode()
-    st.markdown(f'<div class="fanilla-logo"><img src="data:image/png;base64,{data}"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>', unsafe_allow_html=True)
 except: pass
 
 # ==================== INIT ====================
@@ -89,9 +89,9 @@ def show_custom_toast(message, icon="🎨"):
     toast_placeholder = st.empty()
     toast_id = f"toast_{int(time.time()*1000)}"
     toast_html = f"""
-    <div id="{toast_id}" class="fanilla-toast">
+    <div id="{toast_id}" class="orion-toast">
         <span>{icon} {message}</span>
-        <button class="fanilla-toast-close" onclick="document.getElementById('{toast_id}').remove()">×</button>
+        <button class="orion-toast-close" onclick="document.getElementById('{toast_id}').remove()">×</button>
     </div>
     <script>
         setTimeout(() => {{
@@ -103,11 +103,10 @@ def show_custom_toast(message, icon="🎨"):
     toast_placeholder.markdown(toast_html, unsafe_allow_html=True)
     return toast_placeholder
 
-# ==================== FANILLA BRAIN V6.0 - PROBLEM SOLVER ====================
+# ==================== ORION BRAIN V7.0 - MASTER SOLVER ====================
 def deteksi_tingkat(text):
     t = text.lower()
-    # PROBLEM SOLVER MODE
-    if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran"]):
+    if any(k in t for k in ["solusi", "pecahkan", "selesaikan", "masalah", "problem", "gimana caranya", "bantu atasi", "jalan keluar", "saran", "bingung", "pusing"]):
         return "problem_solver"
     if any(k in t for k in ["s3", "disertasi", "rbv", "dynamic capabilities", "transformer", "freire", "dekonstruksi", "backpropagation", "doktoral"]):
         return "kuliah"
@@ -172,11 +171,11 @@ def kirim_ke_ai(prompt, image=None):
 
     tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
 
-    # ========== PROMPT V6.0 - UNIVERSAL & PROBLEM SOLVER ==========
-    system_prompt = f"""Anda adalah Fanilla. Asisten AI yang membantu, analitis, dan mudah dipahami. Tanggal: {tgl}.
+    # ========== PROMPT V7.0 - ORION MASTER SOLVER ==========
+    system_prompt = f"""Anda adalah Orion. Asisten AI cerdas yang membantu menyelesaikan masalah apa pun. Tanggal: {tgl}.
 
 KEPRIBADIAN:
-Ramah, sabar, dan profesional. Gunakan bahasa Indonesia yang sopan dan mudah dimengerti semua kalangan, dari anak muda sampai orang tua. Gunakan kata "Anda" atau "kamu". Hindari kata gaul seperti "bro", "wkwk", "anjir".
+Profesional, empatik, dan solutif. Gunakan bahasa Indonesia yang sopan, jelas, dan mudah dipahami semua kalangan. Gunakan kata "Anda" atau "kamu". Jangan gunakan kata gaul seperti "bro", "wkwk", "anjir".
 
 ATURAN PARAGRAF MUTLAK:
 1. **NGOBROL**: WAJIB 2 paragraf. WAJIB 5 baris per paragraf. Total 10 baris.
@@ -185,44 +184,59 @@ ATURAN PARAGRAF MUTLAK:
 4. **NGAJAR KULIAH/S3**: 3-5 paragraf. WAJIB 5 baris per paragraf.
 5. **PROBLEM SOLVER**: 3-4 paragraf. WAJIB 5 baris per paragraf.
 
-STRUKTUR WAJIB: Gunakan ### Heading, bullet `-`, **bold** untuk kata kunci.
+FORMAT PROBLEM SOLVER WAJIB - IKUTI PERSIS:
+Basa basi-
+[Baris 1: Empati ke masalah user]
+[Baris 2: Validasi bahwa masalahnya wajar]
+[Baris 3: Kasih harapan bahwa ada jalan keluar]
+[Baris 4: Tegaskan Orion akan bantu step by step]
+[Baris 5: Transisi ke solusi]
 
-FORMAT PROBLEM SOLVER:
-### Analisis Masalah
-[Jelaskan inti masalah dalam 5 baris. Apa penyebabnya?]
+Oke jadi begini caranya
+1. [Langkah 1 + penjelasan singkat]
+   [Contoh konkret langkah 1]
+2. [Langkah 2 + penjelasan singkat]
+   [Contoh konkret langkah 2]
+3. [Langkah 3 + penjelasan singkat]
+   [Contoh konkret langkah 3]
+[Tambah langkah 4/5 jika perlu, total tetap 5 baris per paragraf]
 
-### Opsi Solusi
-- **Opsi A**: [Solusi 1 + plus minus]
-- **Opsi B**: [Solusi 2 + plus minus]
-- **Opsi C**: [Solusi 3 jika ada]
-[Susun 5 baris total]
+Jadi gitu cara mengatasinya
+[Baris 1: Rangkum solusi inti]
+[Baris 2: Tekankan manfaat jika diterapkan]
+[Baris 3: Motivasi bahwa user pasti bisa]
+[Baris 4: Tawarkan bantuan lanjutan jika masih bingung]
+[Baris 5: Sudah paham kan?]
 
-### Rekomendasi Terbaik
-[Jelaskan opsi mana paling cocok dan alasannya dalam 5 baris]
+STRUKTUR LAIN: Pake ### Heading, bullet `-`, **bold** untuk kata kunci.
 
-### Langkah Praktis
-1. [Langkah 1]
-2. [Langkah 2]
-3. [Langkah 3]
-[Pastikan 5 baris total]
+CONTOH PROBLEM SOLVER BENAR:
+Basa basi-
+Saya paham masalah keuangan Anda terasa berat dengan gaji UMR saat ini.
+Banyak orang mengalami hal yang sama, jadi Anda tidak sendirian.
+Kabar baiknya, dengan strategi yang tepat, kondisi ini bisa diperbaiki.
+Saya akan bantu Anda menyusun langkah praktis yang bisa langsung diterapkan.
+Tenang saja, kita pecahkan satu per satu.
 
-CONTOH NGOBROL BENAR [2 paragraf, 5 baris/paragraf]:
-Senang bisa membantu Anda. Jika ada tugas atau materi yang sulit dipahami, silakan tanyakan saja.
-Saya akan jelaskan dengan bahasa sederhana dan struktur yang mudah diikuti.
-Untuk anak SD, saya pakai analogi benda sehari-hari. Untuk SMP, pakai contoh yang dekat dengan remaja.
-Untuk SMA, saya beri langkah-langkah detail plus tips mengingat agar siap ujian.
-Untuk kuliah hingga S3, saya bantu analisis jurnal sampai menyusun argumen ilmiah.
+Oke jadi begini caranya
+1. **Pisahkan pos wajib dulu** - Alokasikan 50% untuk sewa, makan, transport
+   Contoh: Jika gaji 4 juta, maka 2 juta khusus kebutuhan pokok
+2. **Buat dana darurat mini** - Sisihkan 10% walau kecil, target 1 juta dulu
+   Contoh: 400 ribu per bulan, dalam 3 bulan sudah ada pegangan
+3. **Cari income tambahan** - Manfaatkan skill sore/malam 2-3 jam
+   Contoh: Jasa ketik, jualan online, atau kurir freelance
 
-Selain mengajar, saya juga siap menemani Anda mengobrol santai.
-Butuh teman diskusi atau curhat? Silakan saja. Ingin bahas topik ringan? Bisa.
-Saya juga bisa membuatkan gambar sesuai permintaan Anda untuk visualisasi.
-Gambar yang sudah jadi bisa diubah gayanya, lalu langsung diunduh.
-Intinya, anggap saya asisten pribadi Anda yang siap membantu kapan saja.
+Jadi gitu cara mengatasinya
+Intinya fokus dulu ke kebutuhan pokok, lalu bangun dana darurat kecil.
+Dengan begitu Anda punya napas jika ada keperluan mendadak.
+Konsisten 3 bulan saja sudah terlihat perubahan signifikan.
+Jika masih bingung mulai dari mana, sebutkan pengeluaran terbesar Anda.
+Sudah paham kan?
 
 ATURAN LAIN:
-1. Jangan sebut "AI" atau "model". Anda adalah Fanilla.
-2. Langsung ke inti jawaban. Jangan mulai dengan "Berikut adalah".
-3. Berikan insight, bukan hanya informasi."""
+1. Jangan sebut "AI" atau "model". Anda adalah Orion.
+2. Langsung ke inti jawaban. Jangan bertele-tele.
+3. Berikan insight dan langkah konkret, bukan teori kosong."""
 
     full_prompt = system_prompt + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
 
@@ -234,7 +248,7 @@ ATURAN LAIN:
         return [("text", res.text, tingkat)]
     except:
         try:
-            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.2)
+            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_prompt}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.3)
             return [("text", chat.choices[0].message.content, tingkat)]
         except:
             return [("text", "Mohon maaf, terjadi gangguan sistem.\nSilakan coba lagi dalam 1 menit.\nKami sedang mengupayakan perbaikan secepatnya.\nData Anda tetap aman.\nTerima kasih atas pengertiannya.", "ngobrol")]
@@ -243,7 +257,7 @@ ATURAN LAIN:
 if not st.session_state.messages:
     st.markdown(f"""
     <div class="meta-opening">
-        <div class="meta-title">Mau dibantu<br>apa hari ini?</div>
+        <div class="meta-title">Ada yang bisa<br>Orion bantu?</div>
         <button class="meta-btn" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'Buat gambar'}}, '*')">
             <span class="meta-btn-icon">🖼️</span> Buat gambar
         </button>
@@ -267,16 +281,16 @@ for i, msg in enumerate(st.session_state.messages):
         if msg["role"] == "assistant":
             badge_class = msg.get("tingkat", "ngobrol")
             badge_text = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "sd": "📘 SD", "smp": "📗 SMP", "sma": "📙 SMA", "kuliah": "📕 KULIAH", "ngobrol": "💬 NGOBROL", "problem_solver": "💡 SOLUSI"}.get(badge_class, "💬")
-            st.markdown(f'<div class="fanilla-badge {badge_class}">{badge_text}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="orion-badge {badge_class}">{badge_text}</div>', unsafe_allow_html=True)
 
         if msg["type"] == "image":
             st.image(msg["content"], use_container_width=True)
-            st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"fanilla_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
+            st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"orion_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
         else:
             st.markdown(msg["content"], unsafe_allow_html=True)
 
 # HANDLE INPUT
-prompt = st.chat_input("Tanya Fanilla...", accept_file=True, file_type=["jpg","png","jpeg"])
+prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
 if prompt:
     # CEK LIMIT
@@ -307,17 +321,17 @@ if prompt:
             with st.chat_message("user"): st.markdown(user_text)
 
         with st.chat_message("assistant"):
-            with st.spinner("Fanilla sedang berpikir..."):
+            with st.spinner("Orion sedang berpikir..."):
                 hasil = kirim_ke_ai(user_text, user_img)
             for tipe, konten, *rest in hasil:
                 tingkat = rest[0] if rest else "ngobrol"
                 if tipe == "image":
-                    st.markdown(f'<div class="fanilla-badge {tingkat}">{ "✨ REMIX" if tingkat == "remix" else "🎨 GAMBAR"}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="orion-badge {tingkat}">{ "✨ REMIX" if tingkat == "remix" else "🎨 GAMBAR"}</div>', unsafe_allow_html=True)
                     st.image(konten, use_container_width=True)
-                    st.download_button("📥 Unduh", image_to_bytes(konten), f"fanilla_{int(time.time())}.png", "image/png", key=f"dl_{time.time()}", use_container_width=True)
+                    st.download_button("📥 Unduh", image_to_bytes(konten), f"orion_{int(time.time())}.png", "image/png", key=f"dl_{time.time()}", use_container_width=True)
                     st.session_state.messages.append({"role": "assistant", "type": "image", "content": konten, "tingkat": tingkat})
                 else:
-                    st.markdown(f'<div class="fanilla-badge {tingkat}">{"💬"}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="orion-badge {tingkat}">{"💬"}</div>', unsafe_allow_html=True)
                     st.markdown(konten, unsafe_allow_html=True)
                     st.session_state.messages.append({"role": "assistant", "type": "text", "content": konten, "tingkat": tingkat})
     st.rerun()
