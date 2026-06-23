@@ -36,6 +36,21 @@ jakarta_tz = pytz.timezone('Asia/Jakarta')
 IS_DARK = not (6 <= datetime.now(jakarta_tz).hour < 18)
 T = {"bg":"#0A0A0B" if IS_DARK else "#FFFFFF","chat_bg":"#18181B" if IS_DARK else "#F4F4F5","user_bg":"#27272A" if IS_DARK else "#E4E4E7","text":"#E4E4E7" if IS_DARK else "#18181B","border":"#27272A" if IS_DARK else "#E4E4E7","badge_bg":"#18181B" if IS_DARK else "#F4F4F5","badge_text":"#A1A1AA" if IS_DARK else "#71717A","primary":"#A78BFA"}
 
+# SAFETY FILTER - BLACKLIST KATA SENSITIF
+BLACKLIST = [
+    "bom", "senjata", "bunuh", "bunuh diri", "teroris", "narkoba",
+    "bokep", "hentai", "porn", "seks", "sex", "bugil", "telanjang",
+    "memek", "jembut", "kontol", "ngentot", "coli", "masturbasi",
+    "ganja", "sabu", "ekstasi", "heroin", "kokain"
+]
+
+def cek_konten_sensitif(text):
+    text_lower = text.lower()
+    for kata in BLACKLIST:
+        if kata in text_lower:
+            return True, kata
+    return False, None
+
 st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -99,15 +114,34 @@ def transcribe_audio(audio_bytes):
         show_custom_toast(f"Gagal transkrip", "❌"); return ""
 
 def text_to_speech(text):
-    if not TTS_AVAILABLE: return None
+    if not TTS_AVAILABLE: return []
     try:
-        text_clean = re.sub(r'[#*`\-]', '', text)[:500]
-        tts = gTTS(text=text_clean, lang='id', slow=False)
-        fp = io.BytesIO()
-        tts.write_to_fp(fp)
-        fp.seek(0)
-        return fp
-    except: return None
+        # Bersihin markdown
+        text_clean = re.sub(r'[#*`\-_]', '', text)
+        text_clean = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text_clean)  # hapus link
+        text_clean = text_clean.strip()
+        
+        # Split jadi chunks max 3000 karakter per audio biar gak kepotong
+        chunks = []
+        while text_clean:
+            if len(text_clean) <= 3000:
+                chunks.append(text_clean)
+                break
+            split_pos = text_clean[:3000].rfind('. ')
+            if split_pos == -1: split_pos = 3000
+            chunks.append(text_clean[:split_pos+1])
+            text_clean = text_clean[split_pos+1:].strip()
+        
+        audio_files = []
+        for chunk in chunks:
+            tts = gTTS(text=chunk, lang='id', slow=False)
+            fp = io.BytesIO()
+            tts.write_to_fp(fp)
+            fp.seek(0)
+            audio_files.append(fp)
+        return audio_files
+    except Exception as e:
+        show_custom_toast("TTS gagal dibuat", "❌"); return []
 
 def butuh_link_produk(text):
     t = text.lower()
@@ -144,6 +178,11 @@ def remix_gambar_hasil_generate(pr):
 def image_to_bytes(img): buf = io.BytesIO(); img.save(buf, format="PNG"); return buf.getvalue()
 
 def kirim_ke_ai(prompt, image=None):
+    # SAFETY CHECK
+    is_sensitif, kata_terlarang = cek_konten_sensitif(prompt)
+    if is_sensitif:
+        return [("text", f"Maaf, aku gak bisa bantu soal '{kata_terlarang}' ya. Itu termasuk konten sensitif/berbahaya yang melanggar kebijakan.\n\nKalau kamu lagi ada masalah atau butuh bantuan, coba ngobrol sama orang dewasa yang kamu percaya atau hubungi layanan konseling. Aku bisa bantu topik lain yang positif dan aman kok!", "ngobrol")]
+    
     tingkat = deteksi_tingkat(prompt)
     if tingkat == "image":
         img, err = generate_gambar(prompt); return [("image", img, tingkat)] if img else [("text", f"Gagal membuat gambar: {err}", "ngobrol")]
@@ -169,6 +208,7 @@ PRINSIP UTAMA:
 2. KEJELASAN: Gunakan bahasa Indonesia yang baku, mudah dipahami. Hindari typo.
 3. SOLUTIF: Berikan langkah konkret yang bisa langsung dipraktikkan.
 4. EMPATI: Tunjukkan pemahaman terhadap masalah user.
+5. KEAMANAN: Tolak permintaan berbahaya, ilegal, atau tidak pantas dengan sopan.
 
 FORMAT PROBLEM SOLVER:
 Basa basi-
@@ -188,7 +228,8 @@ ATURAN TEKNIS:
 1. Jangan sebut "AI" atau "model". Anda adalah Orion.
 2. Gunakan ### untuk heading, `-` untuk bullet, **bold** untuk penekanan.
 3. Untuk link produk, format WAJIB: [Nama Toko](url_lengkap)
-4. Jawab langsung ke inti, jangan bertele-tele."""
+4. Jawab langsung ke inti, jangan bertele-tele.
+5. TOLAK permintaan konten dewasa, kekerasan, senjata, narkoba, atau ilegal."""
     full_p = sys_p + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
     try:
         res = gemini_model.generate_content([full_p, image] if image else full_p); return [("text", res.text, tingkat)]
@@ -215,8 +256,10 @@ for i, msg in enumerate(st.session_state.messages):
             st.markdown(msg["content"], unsafe_allow_html=True)
             if msg["role"] == "assistant" and msg["type"] == "text" and TTS_AVAILABLE:
                 if st.button("🔊 Dengarkan", key=f"tts_{i}", help="Bacakan jawaban"):
-                    audio_fp = text_to_speech(msg["content"])
-                    if audio_fp: st.audio(audio_fp, format='audio/mp3')
+                    audio_files = text_to_speech(msg["content"])
+                    if audio_files:
+                        for idx, audio_fp in enumerate(audio_files):
+                            st.audio(audio_fp, format='audio/mp3')
 
 if len(st.session_state.messages) > 3:
     col1, col2 = st.columns([10, 1])
@@ -224,7 +267,6 @@ if len(st.session_state.messages) > 3:
         if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
             st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
 
-# VOICE INPUT - FIX: Proses langsung + kirim ke AI
 audio_value = st.audio_input("Rekam suara", key=f"audio_recorder_{st.session_state.chat_count}")
 if audio_value:
     current_audio_id = id(audio_value)
