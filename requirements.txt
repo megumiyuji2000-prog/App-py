@@ -4,3 +4,6 @@ groq
 Pillow
 pytz
 pandas
+SpeechRecognition
+gTTS
+PyAudio
