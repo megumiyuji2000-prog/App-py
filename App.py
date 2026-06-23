@@ -29,6 +29,7 @@ except:
 if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_count" not in st.session_state: st.session_state.chat_count = 0
 if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
+if "audio_processed" not in st.session_state: st.session_state.audio_processed = False
 
 MAX_CHAT = 25
 jakarta_tz = pytz.timezone('Asia/Jakarta')
@@ -76,25 +77,30 @@ groq_client = Groq(api_key=GROQ_KEY)
 
 def show_custom_toast(msg, icon="🎤"):
     ph = st.empty(); tid = f"toast_{int(time.time()*1000)}"
-    ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span><button class="orion-toast-close" onclick="document.getElementById('{tid}').remove()">×</button></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},5000);</script>""", unsafe_allow_html=True)
+    ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},4000);</script>""", unsafe_allow_html=True)
 
 def transcribe_audio(audio_bytes):
     try:
         show_custom_toast("Lagi ubah suara jadi teks...", "⏳")
-        # Groq Whisper API - gratis & cepet
         transcription = groq_client.audio.transcriptions.create(
             file=("audio.wav", audio_bytes),
             model="whisper-large-v3",
             language="id",
-            response_format="text"
+            response_format="text",
+            temperature=0.0  # Biar gak ngarang
         )
-        return transcription.strip()
+        text = transcription.strip()
+        # Filter hasil aneh
+        if len(text) < 3 or text.lower() in ["dan abroh", "terima kasih", "you", ""]: 
+            show_custom_toast("Suara gak kedeteksi jelas, coba lagi", "⚠️")
+            return ""
+        return text
     except Exception as e:
-        show_custom_toast(f"Gagal transkrip: {str(e)[:50]}", "❌"); return ""
+        show_custom_toast(f"Gagal transkrip: {str(e)[:40]}", "❌"); return ""
 
 def text_to_speech(text):
     if not TTS_AVAILABLE:
-        show_custom_toast("TTS tidak tersedia di server", "❌"); return None
+        show_custom_toast("TTS tidak tersedia", "❌"); return None
     try:
         text_clean = re.sub(r'[#*`\-]', '', text)[:500]
         tts = gTTS(text=text_clean, lang='id', slow=False)
@@ -220,14 +226,16 @@ if len(st.session_state.messages) > 3:
         if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
             st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
 
-# VOICE TO TEXT - Pake Groq Whisper API
-audio_value = st.audio_input("Rekam suara", key="audio_recorder")
-voice_text = ""
-if audio_value:
+# FIX: Pake flag biar gak loop + clear audio setelah proses
+audio_value = st.audio_input("Rekam suara", key=f"audio_recorder_{st.session_state.chat_count}")
+if audio_value and not st.session_state.audio_processed:
+    st.session_state.audio_processed = True
     voice_text = transcribe_audio(audio_value.getvalue())
     if voice_text:
         st.session_state.messages.append({"role": "user", "type": "text", "content": voice_text})
         st.rerun()
+else:
+    st.session_state.audio_processed = False
 
 prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
