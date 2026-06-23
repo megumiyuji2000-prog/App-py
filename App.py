@@ -11,7 +11,6 @@ import urllib.parse
 import base64
 import re
 
-# Voice libs - pake try biar gak crash kalau gagal install
 try:
     from gtts import gTTS
     TTS_AVAILABLE = True
@@ -78,6 +77,20 @@ groq_client = Groq(api_key=GROQ_KEY)
 def show_custom_toast(msg, icon="🎤"):
     ph = st.empty(); tid = f"toast_{int(time.time()*1000)}"
     ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span><button class="orion-toast-close" onclick="document.getElementById('{tid}').remove()">×</button></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},5000);</script>""", unsafe_allow_html=True)
+
+def transcribe_audio(audio_bytes):
+    try:
+        show_custom_toast("Lagi ubah suara jadi teks...", "⏳")
+        # Groq Whisper API - gratis & cepet
+        transcription = groq_client.audio.transcriptions.create(
+            file=("audio.wav", audio_bytes),
+            model="whisper-large-v3",
+            language="id",
+            response_format="text"
+        )
+        return transcription.strip()
+    except Exception as e:
+        show_custom_toast(f"Gagal transkrip: {str(e)[:50]}", "❌"); return ""
 
 def text_to_speech(text):
     if not TTS_AVAILABLE:
@@ -207,11 +220,14 @@ if len(st.session_state.messages) > 3:
         if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
             st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
 
-# Voice to Text pake st.audio_input - lebih stabil di Streamlit Cloud
+# VOICE TO TEXT - Pake Groq Whisper API
 audio_value = st.audio_input("Rekam suara", key="audio_recorder")
+voice_text = ""
 if audio_value:
-    show_custom_toast("Audio diterima. Fitur Speech-to-Text butuh API tambahan", "ℹ️")
-    # Kalau mau STT beneran, upload audio ke Whisper API. Sekarang cuma demo dulu.
+    voice_text = transcribe_audio(audio_value.getvalue())
+    if voice_text:
+        st.session_state.messages.append({"role": "user", "type": "text", "content": voice_text})
+        st.rerun()
 
 prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
 
