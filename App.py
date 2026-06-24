@@ -5,7 +5,6 @@ from gtts import gTTS
 import io
 from PIL import Image
 import speech_recognition as sr
-from streamlit_chat import message
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
@@ -13,11 +12,11 @@ KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
 
 if "chat" not in st.session_state: 
     st.session_state.chat = []
-    st.session_state.first_chat = True # Buat ilangin opening
+    st.session_state.show_home = True
 if "count" not in st.session_state: st.session_state.count = 0
 MAX_CHAT = 70
 
-# TEMA AUTO
+# TEMA
 jam = datetime.now().hour
 THEME = "dark" if jam < 6 or jam >= 18 else "light"
 
@@ -30,7 +29,7 @@ CSS = f"""
 <style>
 .stApp {{background-color: {BG}; color: {TEKS}}}
 #MainMenu, footer, header {{visibility: hidden}}
-.block-container {{padding-top: 1rem; padding-bottom: 120px; max-width: 720px}}
+.block-container {{padding-top: 1rem; padding-bottom: 140px; max-width: 720px}}
 
 /* HEADER ABU2 */
 .header-abu {{color: {ABU}; font-size: 14px; margin-bottom: 8px;}}
@@ -43,24 +42,18 @@ CSS = f"""
     margin-bottom: 12px!important; font-size: 16px!important; font-weight: 500!important;
 }}
 
-/* BUBBLE CHAT KIRI-KANAN KAYAK META AI */
-.stChatMessage {{background: transparent!important;}}
-.stChatMessage[data-testid="chat-message-user"] {{
-    flex-direction: row!important;
+/* BUBBLE CHAT - USER KIRI, ORION KANAN */
+.chat-row {{width: 100%; display: flex; margin-bottom: 20px;}}
+.user-row {{justify-content: flex-start;}}
+.ai-row {{justify-content: flex-end;}}
+.chat-bubble {{
+    max-width: 75%; padding: 14px 18px; border-radius: 20px;
+    word-wrap: break-word; font-size: 16px; line-height: 1.6;
 }}
-.stChatMessage[data-testid="chat-message-assistant"] {{
-    flex-direction: row-reverse!important;
-}}
-.stChatMessage > div[data-testid="stChatMessageContent"] {{
-    background: {BUBBLE_USER}!important; color: {TEKS}!important; 
-    border-radius: 20px!important; border-bottom-left-radius: 6px!important;
-    padding: 14px 18px!important; max-width: 75%!important;
-}}
-.stChatMessage[data-testid="chat-message-assistant"] > div[data-testid="stChatMessageContent"] {{
-    background: {BUBBLE_AI}!important; border: 1px solid {BORDER}!important;
-    border-bottom-left-radius: 20px!important; border-bottom-right-radius: 6px!important;
-}}
-.stChatMessage.avatar {{background: transparent!important;}}
+.user-bubble {{background: {BUBBLE_USER}; color: {TEKS}; border-bottom-left-radius: 6px;}}
+.ai-bubble {{background: {BUBBLE_AI}; color: {TEKS}; border-bottom-right-radius: 6px; border: 1px solid {BORDER};}}
+.ai-header {{display: flex; align-items: center; gap: 8px; margin-bottom: 8px;}}
+.ai-header img {{width: 28px; height: 28px; border-radius: 50%;}}
 
 /* ANIMASI 3 TITIK → SEGITIGA */
 .orion-loading {{
@@ -99,36 +92,9 @@ CSS = f"""
     100% {{transform: translate(15px, -12px);}}
 }}
 
-/* INPUT BAR - + DAN 🎤 DI DALEM KIRI */
+/* SEMBUNYIIN INPUT DEFAULT STREAMLIT */
+.stChatInput, [data-testid="stChatInput"] {{display: none!important}}
 [data-testid="stBottom"] {{background: {BG};}}
-.stChatInputContainer {{
-    background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; 
-    border-radius: 28px!important; padding: 8px 8px 14px!important;
-}}
-.stChatInputContainer textarea {{
-    background: transparent!important; color: {TEKS}!important; 
-    font-size: 16px!important;
-}}
-
-/* TOMBOL UPLOAD + MIC DI KIRI INPUT */
-.upload-row {{
-    position: fixed; bottom: 20px; left: calc(50% - 360px + 14px); 
-    z-index: 1000; display: flex; gap: 8px;
-}}
-.upload-btn {{
-    background: transparent!important; border: 1px solid {BORDER}!important; 
-    border-radius: 50%!important; width: 36px!important; height: 36px!important;
-    min-width: 36px!important; color: {TEKS}!important; font-size: 20px!important;
-}}
-[data-testid="stFileUploader"] {{width: 36px!important;}}
-[data-testid="stFileUploader"] section {{padding: 0!important}}
-[data-testid="stFileUploader"] section > div {{display: none}}
-[data-testid="stFileUploader"] section button {{
-    background: transparent!important; border: 1px solid {BORDER}!important; 
-    border-radius: 50%!important; width: 36px!important; height: 36px!important;
-    min-width: 36px!important; color: {TEKS}!important;
-}}
-[data-testid="stFileUploader"] section button:before {{content: '+'; font-size: 22px;}}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -172,32 +138,47 @@ def get_base64_logo():
 LOGO_B64 = get_base64_logo()
 
 # HEADER + OPENING - ILANG PAS UDAH CHAT
-if st.session_state.first_chat:
+if st.session_state.show_home:
     st.markdown('<p class="header-abu">product of F.N.L</p>', unsafe_allow_html=True)
     st.markdown(f"<h1 style='color:{TEKS}; font-size: 32px; font-weight: 600; margin-top: 10px; margin-bottom: 30px;'>Ada yang bisa Orion bantu?</h1>", unsafe_allow_html=True)
     
     if st.button("🖼️ Buat gambar", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Buatin gambar kucing astronot"})
-        st.session_state.first_chat = False
+        st.session_state.show_home = False
         st.rerun()
     if st.button("💡 Bantu selesaikan masalah", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Bantu aku selesaikan masalah ini"})
-        st.session_state.first_chat = False
+        st.session_state.show_home = False
         st.rerun()
     if st.button("🎓 Belajar dan berkembang", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Ajari aku sesuatu yang baru"})
-        st.session_state.first_chat = False
+        st.session_state.show_home = False
         st.rerun()
 
-# TAMPILIN CHAT PAKE streamlit-chat BIAR KIRI-KANAN
+# TAMPILIN CHAT - USER KIRI, ORION KANAN
 for i, msg in enumerate(st.session_state.chat):
     if msg["role"] == "user":
         if isinstance(msg["content"], str):
-            message(msg["content"], is_user=True, key=f"user_{i}", avatar_style="personas")
+            st.markdown(f'''
+            <div class="chat-row user-row">
+                <div class="chat-bubble user-bubble">{msg["content"]}</div>
+            </div>
+            ''', unsafe_allow_html=True)
         else:
+            st.markdown('<div class="chat-row user-row">', unsafe_allow_html=True)
             st.image(msg["content"], width=300)
+            st.markdown('</div>', unsafe_allow_html=True)
     else:
-        message(msg["content"], is_user=False, key=f"ai_{i}", logo=LOGO_B64)
+        st.markdown(f'''
+        <div class="chat-row ai-row">
+            <div class="chat-bubble ai-bubble">
+                <div class="ai-header">
+                    <img src="data:image/png;base64,{LOGO_B64}">
+                </div>
+                {msg["content"]}
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
         if isinstance(msg["content"], str):
             col1, col2 = st.columns([5, 1])
             with col2:
@@ -207,15 +188,16 @@ for i, msg in enumerate(st.session_state.chat):
 
 # LOADING + PROSES
 if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
-    st.session_state.first_chat = False # ILANGIN OPENING
-    with st.container():
-        st.markdown('''
+    st.session_state.show_home = False
+    st.markdown('''
+    <div class="chat-row ai-row">
         <div class="orion-loading">
             <div class="orion-dot dot1"></div>
             <div class="orion-dot dot2"></div>
             <div class="orion-dot dot3"></div>
         </div>
-        ''', unsafe_allow_html=True)
+    </div>
+    ''', unsafe_allow_html=True)
     
     pesan = st.session_state.chat[-1]["content"]
     gambar = None
@@ -237,30 +219,30 @@ if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
     st.session_state.count += 1
     st.rerun()
 
-# INPUT BAR - TOMBOL + DAN 🎤 DI KIRI
-col1, col2 = st.columns([1, 10])
-with col1:
-    uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
-    mic_file = st.file_uploader("", type=["wav", "mp3"], label_visibility="collapsed", key="mic")
-    st.markdown('<button class="upload-btn">🎤</button>', unsafe_allow_html=True)
-
-with col2:
-    if prompt := st.chat_input("Tanya Orion..."):
-        if st.session_state.count < MAX_CHAT:
-            st.session_state.first_chat = False # ILANGIN OPENING
-            st.session_state.chat.append({"role": "user", "content": prompt})
+# INPUT BAR CUSTOM - PAKE st.form BIAR + DAN 🎤 DI DALEM
+with st.container():
+    with st.form("input_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns([1, 1, 10, 1])
+        
+        with col1:
+            uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
+        with col2:
+            mic_file = st.file_uploader("", type=["wav", "mp3"], label_visibility="collapsed", key="mic")
+            st.markdown('<button style="background:transparent;border:1px solid '+BORDER+';border-radius:50%;width:36px;height:36px;color:'+TEKS+';">🎤</button>', unsafe_allow_html=True)
+        with col3:
+            prompt = st.text_input("Tanya Orion...", label_visibility="collapsed", placeholder="Tanya Orion...")
+        with col4:
+            submit = st.form_submit_button("↑")
+        
+        if submit and st.session_state.count < MAX_CHAT:
+            st.session_state.show_home = False
+            if mic_file:
+                teks_mic = voice_to_text(mic_file)
+                if teks_mic: st.session_state.chat.append({"role": "user", "content": teks_mic})
+            elif uploaded_file:
+                st.session_state.chat.append({"role": "user", "content": uploaded_file})
+            elif prompt:
+                st.session_state.chat.append({"role": "user", "content": prompt})
             st.rerun()
-        else:
+        elif submit:
             st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
-
-if uploaded_file:
-    st.session_state.first_chat = False
-    st.session_state.chat.append({"role": "user", "content": uploaded_file})
-    st.rerun()
-
-if mic_file:
-    st.session_state.first_chat = False
-    teks_mic = voice_to_text(mic_file)
-    if teks_mic: 
-        st.session_state.chat.append({"role": "user", "content": teks_mic})
-        st.rerun()
