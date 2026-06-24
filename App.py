@@ -20,7 +20,6 @@ if"messages"not in st.session_state:st.session_state.messages=[]
 if"chat_count"not in st.session_state:st.session_state.chat_count=0
 if"audio_processed_id"not in st.session_state:st.session_state.audio_processed_id=None
 if"selected_model"not in st.session_state:st.session_state.selected_model="gemini"
-if"show_mic"not in st.session_state:st.session_state.show_mic=False
 GEMINI_LIMIT=35
 GROQ_LIMIT=35
 MAX_CHAT=GEMINI_LIMIT+GROQ_LIMIT
@@ -32,7 +31,7 @@ def cek_sensitif(t):
  for k in BLACKLIST:
   if k in t.lower():return True,k
  return False,None
-st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}!important}}.block-container{{padding-top:80px!important;padding-bottom:160px!important;max-width:48rem!important}}.orion-header{{position:fixed!important;top:0!important;left:0!important;right:0!important;height:60px!important;background:{T['bg']}!important;border-bottom:3px solid {T['border']}!important;z-index:9998!important}}.orion-logo{{position:fixed!important;top:14px!important;right:16px!important;z-index:9999!important;width:32px!important;height:32px!important}}.orion-logo img{{border-radius:8px!important}}.chat-counter{{position:fixed!important;top:70px!important;right:16px!important;z-index:9999!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:20px!important;padding:6px 14px!important;font-size:0.8rem!important;color:{T['badge_text']}!important;font-weight:600!important}}.meta-opening{{margin-top:1rem!important;margin-bottom:2rem!important}}.meta-title{{font-size:2.5rem!important;font-weight:700!important;color:{T['text']}!important;margin-bottom:2.5rem!important;line-height:1.1!important;letter-spacing:-0.02em!important}}.meta-btn{{display:flex!important;width:100%!important;text-align:left!important;padding:18px 20px!important;margin-bottom:12px!important;background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:16px!important;color:{T['text']}!important;font-size:1rem!important;cursor:pointer!important;transition:all.2s!important;align-items:center!important}}.meta-btn:hover{{border-color:{T['primary']}!important;background-color:{T['user_bg']}!important}}.meta-btn-icon{{margin-right:14px!important;font-size:1.3rem!important}}.stChatMessage{{padding:0.5rem 0!important;gap:0.75rem!important}}[data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#F97316,#EF4444)!important;width:32px!important;height:32px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#3B82F6,#6366F1)!important}}[data-testid="stChatMessageContent"]{{background-color:{T['ai_bubble']}!important;border-radius:18px!important;padding:12px 16px!important;color:{T['text']}!important;border:1px solid {T['border']}!important;line-height:1.6!important;font-size:0.95rem!important;max-width:85%!important}}.stChatMessage[data-testid*="user"]{{flex-direction:row-reverse!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bubble']}!important;margin-left:0!important;margin-right:8px!important}}.stChatInput{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:transparent!important;z-index:10001!important}}.stChatInput>div{{background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:28px!important;padding:4px 8px 4px 90px!important;box-shadow:0 2px 8px rgba(0,0,0,.15)!important}}.stChatInput input{{color:{T['text']}!important;background:transparent!important;border:none!important;padding-left:0!important}}.orion-badge{{display:inline-block!important;font-size:.7rem!important;padding:4px 10px!important;border-radius:12px!important;margin-bottom:10px!important;margin-right:6px!important;font-weight:600!important;background-color:{T['badge_bg']}!important;color:{T['badge_text']}!important;border:1px solid {T['border']}!important}}.model-badge{{background:#A78BFA!important;color:white!important}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:transparent!important;border:none!important;width:28px!important;height:28px!important;margin-top:8px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:1.1rem!important;color:{T['badge_text']}!important;opacity:0.7!important}}.tts-icon:hover{{opacity:1!important}}.footer-fnl{{position:fixed!important;bottom:8px!important;left:50%!important;transform:translateX(-50%)!important;font-size:0.7rem!important;color:{T['badge_text']}!important;z-index:10000!important;opacity:0.6!important}}.custom-input-bar{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;z-index:10002!important;display:flex!important;align-items:center!important;gap:8px!important}}[data-testid="stFileUploader"],[data-testid="stAudioInput"]{{display:none!important}}</style>""",unsafe_allow_html=True)
+st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}!important}}.block-container{{padding-top:80px!important;padding-bottom:160px!important;max-width:48rem!important}}.orion-header{{position:fixed!important;top:0!important;left:0!important;right:0!important;height:60px!important;background:{T['bg']}!important;border-bottom:3px solid {T['border']}!important;z-index:9998!important}}.orion-logo{{position:fixed!important;top:14px!important;right:16px!important;z-index:9999!important;width:32px!important;height:32px!important}}.orion-logo img{{border-radius:8px!important}}.chat-counter{{position:fixed!important;top:70px!important;right:16px!important;z-index:9999!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:20px!important;padding:6px 14px!important;font-size:0.8rem!important;color:{T['badge_text']}!important;font-weight:600!important}}.meta-opening{{margin-top:1rem!important;margin-bottom:2rem!important}}.meta-title{{font-size:2.5rem!important;font-weight:700!important;color:{T['text']}!important;margin-bottom:2.5rem!important;line-height:1.1!important;letter-spacing:-0.02em!important}}.meta-btn{{display:flex!important;width:100%!important;text-align:left!important;padding:18px 20px!important;margin-bottom:12px!important;background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:16px!important;color:{T['text']}!important;font-size:1rem!important;cursor:pointer!important;transition:all.2s!important;align-items:center!important}}.meta-btn:hover{{border-color:{T['primary']}!important;background-color:{T['user_bg']}!important}}.meta-btn-icon{{margin-right:14px!important;font-size:1.3rem!important}}.stChatMessage{{padding:0.5rem 0!important;gap:0.75rem!important}}[data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#F97316,#EF4444)!important;width:32px!important;height:32px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#3B82F6,#6366F1)!important}}[data-testid="stChatMessageContent"]{{background-color:{T['ai_bubble']}!important;border-radius:18px!important;padding:12px 16px!important;color:{T['text']}!important;border:1px solid {T['border']}!important;line-height:1.6!important;font-size:0.95rem!important;max-width:85%!important}}.stChatMessage[data-testid*="user"]{{flex-direction:row-reverse!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bubble']}!important;margin-left:0!important;margin-right:8px!important}}.stChatInput{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:transparent!important;z-index:10001!important}}.stChatInput>div{{background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:28px!important;padding:4px 8px 4px 90px!important;box-shadow:0 2px 8px rgba(0,0,0,.15)!important;position:relative!important}}.stChatInput input{{color:{T['text']}!important;background:transparent!important;border:none!important;padding-left:0!important}}.orion-badge{{display:inline-block!important;font-size:.7rem!important;padding:4px 10px!important;border-radius:12px!important;margin-bottom:10px!important;margin-right:6px!important;font-weight:600!important;background-color:{T['badge_bg']}!important;color:{T['badge_text']}!important;border:1px solid {T['border']}!important}}.model-badge{{background:#A78BFA!important;color:white!important}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:transparent!important;border:none!important;width:28px!important;height:28px!important;margin-top:8px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:1.1rem!important;color:{T['badge_text']}!important;opacity:0.7!important}}.tts-icon:hover{{opacity:1!important}}.footer-fnl{{position:fixed!important;bottom:8px!important;left:50%!important;transform:translateX(-50%)!important;font-size:0.7rem!important;color:{T['badge_text']}!important;z-index:10000!important;opacity:0.6!important}}[data-testid="stFileUploader"],[data-testid="stAudioInput"]{{display:none!important}}</style>""",unsafe_allow_html=True)
 st.markdown('<div class="orion-header"></div>',unsafe_allow_html=True)
 try:
  with open("logo.png","rb")as f:data=base64.b64encode(f.read()).decode()
@@ -154,47 +153,53 @@ for i,msg in enumerate(st.session_state.messages):
       audio_files=text_to_speech(msg["content"])
       if audio_files:
        for idx,audio_fp in enumerate(audio_files):st.audio(audio_fp,format='audio/mp3')
-with st.container():
- col1,col2,col3=st.columns([1,1,12])
- with col1:
-  if st.button("+",key="plus_btn",help="Upload gambar"):
-   st.session_state.trigger_upload=True
+upload_file=st.file_uploader("Upload",type=["jpg","png","jpeg"],key="upload_hidden",label_visibility="collapsed")
+audio_value=st.audio_input("Rekam",key=f"audio_recorder_{st.session_state.chat_count}",label_visibility="collapsed")
+st.markdown(f"""<script>
+setTimeout(()=>{{
+ const chatInput=document.querySelector('[data-testid="stChatInput"] > div');
+ if(chatInput && !document.getElementById('custom-plus-btn')){{
+  const plusBtn=document.createElement('button');
+  plusBtn.innerHTML='+';
+  plusBtn.id='custom-plus-btn';
+  plusBtn.style.cssText='position:absolute;left:12px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:transparent;border:none;color:{T['icon']};font-size:1.8rem;font-weight:300;cursor:pointer;z-index:10003;display:flex;align-items:center;justify-content:center;line-height:1;';
+  plusBtn.onclick=()=>document.querySelector('[data-testid="stFileUploader"] input').click();
+  chatInput.appendChild(plusBtn);
+ }}
+ if(chatInput && !document.getElementById('custom-mic-btn')){{
+  const micBtn=document.createElement('button');
+  micBtn.innerHTML='🎤';
+  micBtn.id='custom-mic-btn';
+  micBtn.style.cssText='position:absolute;left:50px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:transparent;border:none;color:{T['icon']};font-size:1.2rem;cursor:pointer;z-index:10003;display:flex;align-items:center;justify-content:center;';
+  micBtn.onclick=()=>document.querySelector('[data-testid="stAudioInput"] button').click();
+  chatInput.appendChild(micBtn);
+ }}
+}},100);
+</script>""",unsafe_allow_html=True)
+if audio_value:
+ current_audio_id=id(audio_value)
+ if st.session_state.audio_processed_id!=current_audio_id:
+  st.session_state.audio_processed_id=current_audio_id
+  voice_text=transcribe_audio(audio_value.getvalue())
+  if voice_text:
+   if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
+   st.session_state.chat_count+=1
+   st.session_state.messages.append({"role":"user","type":"text","content":voice_text})
+   hasil=kirim_ke_ai(voice_text,None)
+   for tipe,konten,*rest in hasil:
+    tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
+    st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
    st.rerun()
- with col2:
-  if st.button("🎤",key="mic_btn",help="Rekam suara"):
-   st.session_state.trigger_mic=True
-   st.rerun()
- st.markdown(f'<style>.stButton[data-testid="baseButton-secondary"]{{position:fixed!important;bottom:44px!important;z-index:10002!important;width:36px!important;height:36px!important;border-radius:50%!important;background:transparent!important;border:none!important;color:{T["icon"]}!important;font-size:1.8rem!important;font-weight:300!important;padding:0!important}}.stButton[data-testid="baseButton-secondary"]:nth-of-type(1){{left:calc(50% - 24rem + 12px)!important}}.stButton[data-testid="baseButton-secondary"]:nth-of-type(2){{left:calc(50% - 24rem + 52px)!important;font-size:1.2rem!important}}.stButton[data-testid="baseButton-secondary"]:hover{{background:{T["user_bg"]}!important}}</style>',unsafe_allow_html=True)
-if st.session_state.get("trigger_upload",False):
- upload_file=st.file_uploader("Upload",type=["jpg","png","jpeg"],key="upload_hidden",label_visibility="collapsed")
- st.session_state.trigger_upload=False
- if upload_file:
-  if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
-  st.session_state.chat_count+=1
-  user_img=Image.open(upload_file).convert("RGB")
-  st.session_state.messages.append({"role":"user","type":"image","content":user_img})
-  hasil=kirim_ke_ai("",user_img)
-  for tipe,konten,*rest in hasil:
-   tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
-   st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
-  st.rerun()
-if st.session_state.get("trigger_mic",False):
- audio_value=st.audio_input("Rekam",key=f"audio_recorder_{st.session_state.chat_count}",label_visibility="collapsed")
- st.session_state.trigger_mic=False
- if audio_value:
-  current_audio_id=id(audio_value)
-  if st.session_state.audio_processed_id!=current_audio_id:
-   st.session_state.audio_processed_id=current_audio_id
-   voice_text=transcribe_audio(audio_value.getvalue())
-   if voice_text:
-    if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
-    st.session_state.chat_count+=1
-    st.session_state.messages.append({"role":"user","type":"text","content":voice_text})
-    hasil=kirim_ke_ai(voice_text,None)
-    for tipe,konten,*rest in hasil:
-     tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
-     st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
-    st.rerun()
+if upload_file:
+ if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
+ st.session_state.chat_count+=1
+ user_img=Image.open(upload_file).convert("RGB")
+ st.session_state.messages.append({"role":"user","type":"image","content":user_img})
+ hasil=kirim_ke_ai("",user_img)
+ for tipe,konten,*rest in hasil:
+  tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
+  st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
+ st.rerun()
 prompt=st.chat_input("Tanya Orion...")
 if prompt:
  if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏");st.stop()
