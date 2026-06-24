@@ -11,291 +11,173 @@ import urllib.parse
 import base64
 import re
 
+try:from gtts import gTTS;TTS=True
+except:TTS=False
+st.set_page_config(page_title="Orion AI",page_icon="logo.png",layout="wide",initial_sidebar_state="collapsed")
+try:GEMINI_KEY=st.secrets["GEMINI_API_KEY"];GROQ_KEY=st.secrets["GROQ_API_KEY"]
+except:st.error("API Key belum diisi");st.stop()
+if"messages"not in st.session_state:st.session_state.messages=[]
+if"chat_count"not in st.session_state:st.session_state.chat_count=0
+if"audio_processed_id"not in st.session_state:st.session_state.audio_processed_id=None
+if"selected_model"not in st.session_state:st.session_state.selected_model="gemini"
+MAX_CHAT=70
+jakarta_tz=pytz.timezone('Asia/Jakarta')
+IS_DARK=not(6<=datetime.now(jakarta_tz).hour<18)
+T={"bg":"#0A0A0B"if IS_DARK else"#FFFFFF","chat_bg":"#18181B"if IS_DARK else"#F4F4F5","user_bg":"#27272A"if IS_DARK else"#E4E4E7","text":"#E4E4E7"if IS_DARK else"#18181B","border":"#27272A"if IS_DARK else"#E4E4E7","badge_bg":"#18181B"if IS_DARK else"#F4F4F5","badge_text":"#A1A1AA"if IS_DARK else"#71717A","primary":"#A78BFA","user_bubble":"#3F3F46"if IS_DARK else"#E4E4E7","ai_bubble":"#18181B"if IS_DARK else"#FFFFFF"}
+BLACKLIST=["bom","senjata","bunuh","bunuh diri","teroris","narkoba","bokep","hentai","porn","seks","sex","bugil","telanjang","memek","jembut","kontol","ngentot","coli","masturbasi","ganja","sabu","ekstasi","heroin","kokain"]
+def cek_sensitif(t):
+ for k in BLACKLIST:
+  if k in t.lower():return True,k
+ return False,None
+st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}!important}}.block-container{{padding-top:1rem!important;padding-bottom:180px!important;max-width:48rem!important}}.orion-logo{{position:fixed!important;top:16px!important;right:16px!important;z-index:9999!important;width:32px!important;height:32px!important}}.orion-logo img{{border-radius:8px!important}}.chat-counter{{position:fixed!important;top:60px!important;right:16px!important;z-index:9999!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:20px!important;padding:6px 14px!important;font-size:0.8rem!important;color:{T['badge_text']}!important;font-weight:600!important}}.orion-divider{{border-top:1px solid {T['border']}!important;margin-top:5rem!important;margin-bottom:2rem!important}}.meta-opening{{margin-top:0!important;margin-bottom:2rem!important}}.meta-title{{font-size:2.5rem!important;font-weight:700!important;color:{T['text']}!important;margin-bottom:2.5rem!important;line-height:1.1!important;letter-spacing:-0.02em!important}}.meta-btn{{display:flex!important;width:100%!important;text-align:left!important;padding:18px 20px!important;margin-bottom:12px!important;background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:16px!important;color:{T['text']}!important;font-size:1rem!important;cursor:pointer!important;transition:all.2s!important;align-items:center!important}}.meta-btn:hover{{border-color:{T['primary']}!important;background-color:{T['user_bg']}!important}}.meta-btn-icon{{margin-right:14px!important;font-size:1.3rem!important}}.stChatMessage{{padding:0.5rem 0!important;gap:0.75rem!important}}[data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#F97316,#EF4444)!important;width:32px!important;height:32px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#3B82F6,#6366F1)!important}}[data-testid="stChatMessageContent"]{{background-color:{T['ai_bubble']}!important;border-radius:18px!important;padding:12px 16px!important;color:{T['text']}!important;border:1px solid {T['border']}!important;line-height:1.6!important;font-size:0.95rem!important;max-width:85%!important}}.stChatMessage[data-testid*="user"]{{flex-direction:row-reverse!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bubble']}!important;margin-left:0!important;margin-right:8px!important}}.stChatInput{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:transparent!important;z-index:10001!important}}.stChatInput>div{{background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:28px!important;padding:4px 8px 4px 8px!important;box-shadow:0 2px 8px rgba(0,0,0,.15)!important}}.stChatInput input{{color:{T['text']}!important;background:transparent!important;border:none!important}}.orion-badge{{display:inline-block!important;font-size:.7rem!important;padding:4px 10px!important;border-radius:12px!important;margin-bottom:10px!important;margin-right:6px!important;font-weight:600!important;background-color:{T['badge_bg']}!important;color:{T['badge_text']}!important;border:1px solid {T['border']}!important}}.model-badge{{background:#A78BFA!important;color:white!important}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:transparent!important;border:none!important;width:28px!important;height:28px!important;margin-top:8px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:1.1rem!important;color:{T['badge_text']}!important;opacity:0.7!important}}.tts-icon:hover{{opacity:1!important}}[data-testid="stAudioInput"]{{position:fixed!important;bottom:44px!important;left:calc(50% - 24rem + 50px)!important;z-index:10002!important;width:40px!important}}[data-testid="stAudioInput"] button{{border-radius:50%!important;width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;background:transparent!important;border:none!important;color:{T['badge_text']}!important}}.footer-fnl{{position:fixed!important;bottom:8px!important;left:50%!important;transform:translateX(-50%)!important;font-size:0.7rem!important;color:{T['badge_text']}!important;z-index:10000!important;opacity:0.6!important}}.stFileUploader{{position:fixed!important;bottom:44px!important;left:calc(50% - 24rem + 8px)!important;z-index:10002!important;width:40px!important}}.stFileUploader>div>button{{border-radius:50%!important;width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;background:transparent!important;border:none!important;color:{T['badge_text']}!important;font-size:1.3rem!important}}.stFileUploader>div>button:hover{{background:{T['user_bg']}!important}}</style>""",unsafe_allow_html=True)
 try:
-    from gtts import gTTS
-    TTS_AVAILABLE = True
-except:
-    TTS_AVAILABLE = False
-
-st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="wide", initial_sidebar_state="collapsed")
-
-try:
-    GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
-    GROQ_KEY = st.secrets["GROQ_API_KEY"]
-except:
-    st.error("API Key belum diisi. Masuk Manage app → Settings → Secrets")
-    st.stop()
-
-if "messages" not in st.session_state: st.session_state.messages = []
-if "chat_count" not in st.session_state: st.session_state.chat_count = 0
-if "last_generated_prompt" not in st.session_state: st.session_state.last_generated_prompt = None
-if "audio_processed_id" not in st.session_state: st.session_state.audio_processed_id = None
-
-MAX_CHAT = 25
-jakarta_tz = pytz.timezone('Asia/Jakarta')
-IS_DARK = not (6 <= datetime.now(jakarta_tz).hour < 18)
-T = {"bg":"#0A0A0B" if IS_DARK else "#FFFFFF","chat_bg":"#18181B" if IS_DARK else "#F4F4F5","user_bg":"#27272A" if IS_DARK else "#E4E4E7","text":"#E4E4E7" if IS_DARK else "#18181B","border":"#27272A" if IS_DARK else "#E4E4E7","badge_bg":"#18181B" if IS_DARK else "#F4F4F5","badge_text":"#A1A1AA" if IS_DARK else "#71717A","primary":"#A78BFA"}
-
-# SAFETY FILTER - BLACKLIST KATA SENSITIF
-BLACKLIST = [
-    "bom", "senjata", "bunuh", "bunuh diri", "teroris", "narkoba",
-    "bokep", "hentai", "porn", "seks", "sex", "bugil", "telanjang",
-    "memek", "jembut", "kontol", "ngentot", "coli", "masturbasi",
-    "ganja", "sabu", "ekstasi", "heroin", "kokain"
-]
-
-def cek_konten_sensitif(text):
-    text_lower = text.lower()
-    for kata in BLACKLIST:
-        if kata in text_lower:
-            return True, kata
-    return False, None
-
-st.markdown(f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}
-.stApp,.main{{background-color:{T['bg']}}}.block-container{{padding-top:1rem!important;padding-bottom:200px!important;max-width:48rem!important}}
-.orion-logo{{position:fixed;top:16px;right:16px;z-index:999;width:32px;height:32px}}.orion-logo img{{border-radius:8px}}
-.stButton>button[data-testid="scroll-btn"]{{position:fixed!important;bottom:150px!important;right:20px!important;width:36px!important;height:36px!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:50%!important;z-index:998!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 8px rgba(0,0,0,.25)!important;padding:0!important;min-height:36px!important}}
-.stButton>button[data-testid="scroll-btn"]:hover{{background:{T['user_bg']}!important}}.stButton>button[data-testid="scroll-btn"] p{{font-size:18px!important;margin:0!important;color:{T['text']}!important}}
-.meta-opening{{margin-top:28vh;margin-bottom:2rem}}.meta-title{{font-size:2.25rem;font-weight:700;color:{T['text']};margin-bottom:2.5rem;line-height:1.1;letter-spacing:-0.02em}}
-.meta-btn{{display:flex;width:100%;text-align:left;padding:16px 20px;margin-bottom:14px;background-color:{T['chat_bg']};border:1px solid {T['border']};border-radius:28px;color:{T['text']};font-size:1rem;cursor:pointer;transition:all.2s;align-items:center}}
-.meta-btn:hover{{border-color:{T['primary']};background-color:{T['user_bg']}}}.meta-btn-icon{{margin-right:14px;font-size:1.2rem}}
-.stChatMessage{{padding:0.5rem 0!important}}
-[data-testid="stChatMessageAvatar"]{{background-color:#EF4444!important}}
-.stChatMessage[data-testid*="assistant"] [data-testid="stChatMessageAvatar"]{{background-color:#F97316!important}}
-[data-testid="stChatMessageContent"]{{background-color:{T['chat_bg']}!important;border-radius:20px!important;padding:16px 20px!important;color:{T['text']}!important;border:1px solid {T['border']};line-height:1.7;font-size:0.95rem;margin-left:8px!important}}
-.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bg']}!important}}
-.stChatInput{{position:fixed!important;bottom:0!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem 1rem 1rem!important;background:{T['bg']}!important;z-index:1001!important}}
-.stChatInput>div{{background-color:{T['bg']}!important;border:1.5px solid {T['primary']}!important;border-radius:28px!important;padding:2px!important}}
-.orion-badge{{display:inline-block;font-size:.7rem;padding:4px 10px;border-radius:12px;margin-bottom:10px;font-weight:600;background-color:{T['badge_bg']};color:{T['badge_text']};border:1px solid {T['border']}}}
-[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}
-[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}
-[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}
-[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}
-.orion-toast{{position:fixed;top:70px;right:20px;z-index:9999;background:{T['chat_bg']};color:{T['text']};padding:12px 16px;border-radius:12px;border:1px solid {T['border']};box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;gap:12px;max-width:320px;animation:slideIn.3s ease}}
-.tts-btn{{background:{T['badge_bg']};border:1px solid {T['border']};border-radius:8px;padding:6px 12px;margin-top:8px;cursor:pointer;font-size:0.85rem;color:{T['badge_text']};display:inline-flex;align-items:center;gap:6px}}
-.tts-btn:hover{{background:{T['user_bg']};color:{T['text']}}}
-[data-testid="stAudioInput"]{{margin-bottom:10px!important}}
-@keyframes slideIn{{from{{transform:translateX(100%);opacity:0}}to{{transform:translateX(0);opacity:1}}}}
-</style>
-""", unsafe_allow_html=True)
-
-try:
-    with open("logo.png", "rb") as f: data = base64.b64encode(f.read()).decode()
-    st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>', unsafe_allow_html=True)
-except: pass
-
+ with open("logo.png","rb")as f:data=base64.b64encode(f.read()).decode()
+ st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>',unsafe_allow_html=True)
+except:pass
+st.markdown(f'<div class="chat-counter">{st.session_state.chat_count}/{MAX_CHAT}</div>',unsafe_allow_html=True)
 genai.configure(api_key=GEMINI_KEY)
-gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-groq_client = Groq(api_key=GROQ_KEY)
-
-def show_custom_toast(msg, icon="🎤"):
-    ph = st.empty(); tid = f"toast_{int(time.time()*1000)}"
-    ph.markdown(f"""<div id="{tid}" class="orion-toast"><span>{icon} {msg}</span></div><script>setTimeout(()=>{{const el=document.getElementById('{tid}');if(el)el.remove()}},4000);</script>""", unsafe_allow_html=True)
-
+gemini_model=genai.GenerativeModel('gemini-2.5-flash')
+groq_client=Groq(api_key=GROQ_KEY)
+def toast(msg,icon="🎯"):st.toast(msg,icon=icon)
 def transcribe_audio(audio_bytes):
-    try:
-        show_custom_toast("Lagi ubah suara jadi teks...", "⏳")
-        transcription = groq_client.audio.transcriptions.create(
-            file=("audio.wav", audio_bytes),
-            model="whisper-large-v3",
-            language="id",
-            response_format="text",
-            temperature=0.0
-        )
-        text = transcription.strip()
-        if len(text) < 3 or text.lower() in ["dan abroh", "terima kasih", "you", ""]: 
-            show_custom_toast("Suara gak kedeteksi jelas, coba lagi", "⚠️")
-            return ""
-        return text
-    except Exception as e:
-        show_custom_toast(f"Gagal transkrip", "❌"); return ""
-
+ try:
+  t=groq_client.audio.transcriptions.create(file=("audio.wav",audio_bytes),model="whisper-large-v3",language="id",response_format="text",temperature=0.0).strip()
+  if len(t)<3:return""
+  return t
+ except:return""
 def text_to_speech(text):
-    if not TTS_AVAILABLE: return []
-    try:
-        # Bersihin markdown
-        text_clean = re.sub(r'[#*`\-_]', '', text)
-        text_clean = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text_clean)  # hapus link
-        text_clean = text_clean.strip()
-        
-        # Split jadi chunks max 3000 karakter per audio biar gak kepotong
-        chunks = []
-        while text_clean:
-            if len(text_clean) <= 3000:
-                chunks.append(text_clean)
-                break
-            split_pos = text_clean[:3000].rfind('. ')
-            if split_pos == -1: split_pos = 3000
-            chunks.append(text_clean[:split_pos+1])
-            text_clean = text_clean[split_pos+1:].strip()
-        
-        audio_files = []
-        for chunk in chunks:
-            tts = gTTS(text=chunk, lang='id', slow=False)
-            fp = io.BytesIO()
-            tts.write_to_fp(fp)
-            fp.seek(0)
-            audio_files.append(fp)
-        return audio_files
-    except Exception as e:
-        show_custom_toast("TTS gagal dibuat", "❌"); return []
-
+ if not TTS:return[]
+ try:
+  text=re.sub(r'[#*`\-_]','',text);text=re.sub(r'\[([^\]]+)\]\([^\)]+\)',r'\1',text).strip()
+  chunks=[];t=text
+  while t:
+   if len(t)<=3000:chunks.append(t);break
+   p=t[:3000].rfind('. ')
+   if p==-1:p=3000
+   chunks.append(t[:p+1]);t=t[p+1:].strip()
+  audios=[]
+  for c in chunks:
+   tts=gTTS(text=c,lang='id',slow=False);fp=io.BytesIO();tts.write_to_fp(fp);fp.seek(0);audios.append(fp)
+  return audios
+ except:return[]
 def butuh_link_produk(text):
-    t = text.lower()
-    kata_produk = ["rusak","copot","hilang","patah","pecah","habis","beli","ganti","butuh","cari","rekomendasi","yang bagus","sparepart","suku cadang","minta link","dimana beli"]
-    kata_tutorial = ["cara","gimana","bagaimana","tutorial","langkah","memasak","memasang","memakai","mencopot","menggunakan","pasang"]
-    return any(k in t for k in kata_produk) and not any(k in t for k in kata_tutorial)
-
+ t=text.lower()
+ kata_produk=["rusak","copot","hilang","patah","pecah","habis","beli","ganti","butuh","cari","rekomendasi","yang bagus","sparepart","suku cadang","minta link","dimana beli"]
+ kata_tutorial=["cara","gimana","bagaimana","tutorial","langkah","memasak","memasang","memakai","mencopot","menggunakan","pasang"]
+ return any(k in t for k in kata_produk)and not any(k in t for k in kata_tutorial)
 def extract_keyword_produk(text):
-    stop = ["saya","aku","gue","punya","ini","itu","yang","kok","sih","dong","ya","mulu","terus","sering","kenapa"]
-    text = re.sub(r'[^\w\s]', '', text.lower())
-    words = [w for w in text.split() if w not in stop and len(w) > 2]
-    return " ".join(words[:4])
-
+ stop=["saya","aku","gue","punya","ini","itu","yang","kok","sih","dong","ya","mulu","terus","sering","kenapa"]
+ text=re.sub(r'[^\w\s]','',text.lower())
+ words=[w for w in text.split()if w not in stop and len(w)>2]
+ return" ".join(words[:4])
 def deteksi_tingkat(t):
-    t = t.lower()
-    if any(k in t for k in ["solusi","pecahkan","selesaikan","masalah","problem","gimana caranya","bantu atasi","jalan keluar","saran","bingung","pusing","rusak","copot","hilang","patah"]): return "problem_solver"
-    if any(k in t for k in ["ubah jadi","jadiin","remix","ganti style","versi","ganti jadi"]) and st.session_state.last_generated_prompt: return "remix"
-    if any(k in t for k in ["gambar","bikin","lukis","draw","buatin","generate"]): return "image"
-    return "ngobrol"
-
+ t=t.lower()
+ if any(k in t for k in["solusi","pecahkan","selesaikan","masalah","problem","gimana caranya","bantu atasi","jalan keluar","saran","bingung","pusing","rusak","copot","hilang","patah"]):return"problem_solver"
+ if any(k in t for k in["ubah jadi","jadiin","remix","ganti style","versi","ganti jadi"])and st.session_state.last_generated_prompt:return"remix"
+ if any(k in t for k in["gambar","bikin","lukis","draw","buatin","generate"]):return"image"
+ return"ngobrol"
 def generate_gambar(p):
-    show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "🎨"); st.session_state.last_generated_prompt = p
-    url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
-    try: r = requests.get(url, timeout=45); return (Image.open(io.BytesIO(r.content)).convert("RGB"), None) if r.status_code == 200 else (None, "Server sedang penuh")
-    except: return None, "Terjadi kesalahan, silakan coba lagi"
-
+ toast("Maaf jika hasilnya kurang memuaskan 🙏","🎨");st.session_state.last_generated_prompt=p
+ url=f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
+ try:r=requests.get(url,timeout=45);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Server penuh")
+ except:return None,"Error"
 def remix_gambar_hasil_generate(pr):
-    if not st.session_state.last_generated_prompt: return None, "Buat gambar dulu baru bisa di-remix"
-    show_custom_toast("Maaf jika hasilnya kurang memuaskan 🙏", "✨"); fp = f"{st.session_state.last_generated_prompt}, {pr}"; st.session_state.last_generated_prompt = fp
-    url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(fp[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
-    try: r = requests.get(url, timeout=45); return (Image.open(io.BytesIO(r.content)).convert("RGB"), None) if r.status_code == 200 else (None, "Gagal me-remix gambar")
-    except: return None, "Terjadi kesalahan saat remix"
-
-def image_to_bytes(img): buf = io.BytesIO(); img.save(buf, format="PNG"); return buf.getvalue()
-
-def kirim_ke_ai(prompt, image=None):
-    # SAFETY CHECK
-    is_sensitif, kata_terlarang = cek_konten_sensitif(prompt)
-    if is_sensitif:
-        return [("text", f"Maaf, aku gak bisa bantu soal '{kata_terlarang}' ya. Itu termasuk konten sensitif/berbahaya yang melanggar kebijakan.\n\nKalau kamu lagi ada masalah atau butuh bantuan, coba ngobrol sama orang dewasa yang kamu percaya atau hubungi layanan konseling. Aku bisa bantu topik lain yang positif dan aman kok!", "ngobrol")]
-    
-    tingkat = deteksi_tingkat(prompt)
-    if tingkat == "image":
-        img, err = generate_gambar(prompt); return [("image", img, tingkat)] if img else [("text", f"Gagal membuat gambar: {err}", "ngobrol")]
-    if tingkat == "remix":
-        img, err = remix_gambar_hasil_generate(prompt); return [("image", img, "remix")] if img else [("text", f"Gagal remix: {err}", "ngobrol")]
-
-    perlu_link = butuh_link_produk(prompt)
-    keyword = extract_keyword_produk(prompt) if perlu_link else ""
-    tgl = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
-
-    link_instruksi = f"""
-ATURAN PRODUK: User butuh barang pengganti. Setelah solusi, WAJIB tambahkan:
-### Rekomendasi Produk
-Berikut link untuk mencari "{keyword}":
-- **Shopee**: [Cari di Shopee](https://shopee.co.id/search?keyword={urllib.parse.quote(keyword)})
-- **Tokopedia**: [Cari di Tokopedia](https://www.tokopedia.com/search?st=product&q={urllib.parse.quote(keyword)})
-""" if perlu_link else "ATURAN PRODUK: User hanya butuh tutorial. JANGAN berikan link produk."
-
-    sys_p = f"""Anda adalah Orion, asisten AI yang sangat cerdas, teliti, dan akurat. Tanggal: {tgl}.
-
-PRINSIP UTAMA:
-1. AKURASI: Jawaban harus 100% benar secara faktual.
-2. KEJELASAN: Gunakan bahasa Indonesia yang baku, mudah dipahami. Hindari typo.
-3. SOLUTIF: Berikan langkah konkret yang bisa langsung dipraktikkan.
-4. EMPATI: Tunjukkan pemahaman terhadap masalah user.
-5. KEAMANAN: Tolak permintaan berbahaya, ilegal, atau tidak pantas dengan sopan.
-
-FORMAT PROBLEM SOLVER:
-Basa basi-
-[Tunjukkan empati + validasi masalah + beri harapan + komitmen membantu]
-
-Oke jadi begini caranya
-1. [Langkah 1: Diagnosis + solusi + contoh konkret]
-2. [Langkah 2: Solusi lanjutan + contoh konkret]
-3. [Langkah 3: Pencegahan + contoh konkret]
-
-Jadi gitu cara mengatasinya
-[Rangkum inti solusi. Tekankan manfaat. Motivasi. Tawarkan bantuan. Tutup dengan "Sudah paham kan?"]
-
-{link_instruksi}
-
-ATURAN TEKNIS:
-1. Jangan sebut "AI" atau "model". Anda adalah Orion.
-2. Gunakan ### untuk heading, `-` untuk bullet, **bold** untuk penekanan.
-3. Untuk link produk, format WAJIB: [Nama Toko](url_lengkap)
-4. Jawab langsung ke inti, jangan bertele-tele.
-5. TOLAK permintaan konten dewasa, kekerasan, senjata, narkoba, atau ilegal."""
-    full_p = sys_p + f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
-    try:
-        res = gemini_model.generate_content([full_p, image] if image else full_p); return [("text", res.text, tingkat)]
-    except:
-        try:
-            chat = groq_client.chat.completions.create(messages=[{"role": "user", "content": full_p}], model="llama-3.3-70b-versatile", max_tokens=2000, temperature=0.3)
-            return [("text", chat.choices[0].message.content, tingkat)]
-        except: return [("text", "Mohon maaf, terjadi gangguan sistem. Silakan coba lagi.", "ngobrol")]
-
+ if not st.session_state.last_generated_prompt:return None,"Buat gambar dulu baru bisa di-remix"
+ toast("Maaf jika hasilnya kurang memuaskan 🙏","✨");fp=f"{st.session_state.last_generated_prompt}, {pr}";st.session_state.last_generated_prompt=fp
+ url=f"https://image.pollinations.ai/prompt/{urllib.parse.quote(fp[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
+ try:r=requests.get(url,timeout=45);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Gagal remix")
+ except:return None,"Error remix"
+def image_to_bytes(img):buf=io.BytesIO();img.save(buf,format="PNG");return buf.getvalue()
+def kirim_ke_ai(prompt,image=None):
+ is_sensitif,kata=cek_sensitif(prompt)
+ if is_sensitif:return[("text",f"Maaf, aku gak bisa bantu soal '{kata}' ya. Itu termasuk konten sensitif/berbahaya.\n\nKalau kamu lagi ada masalah, coba ngobrol sama orang dewasa yang kamu percaya. Aku bisa bantu topik lain yang positif kok!","ngobrol")]
+ tingkat=deteksi_tingkat(prompt)
+ if tingkat=="image":
+  img,err=generate_gambar(prompt);return[("image",img,tingkat)]if img else[("text",f"Gagal membuat gambar: {err}","ngobrol")]
+ if tingkat=="remix":
+  img,err=remix_gambar_hasil_generate(prompt);return[("image",img,"remix")]if img else[("text",f"Gagal remix: {err}","ngobrol")]
+ perlu_link=butuh_link_produk(prompt)
+ keyword=extract_keyword_produk(prompt)if perlu_link else""
+ tgl=datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y')
+ link_instruksi=f"""ATURAN PRODUK: User butuh barang. Setelah solusi, WAJIB tambahkan:\n### Rekomendasi Produk\nBerikut link untuk mencari "{keyword}":\n- **Shopee**: [Cari di Shopee](https://shopee.co.id/search?keyword={urllib.parse.quote(keyword)})\n- **Tokopedia**: [Cari di Tokopedia](https://www.tokopedia.com/search?st=product&q={urllib.parse.quote(keyword)})"""if perlu_link else"ATURAN PRODUK: User hanya butuh tutorial. JANGAN berikan link produk."
+ sys_p=f"""Anda adalah Orion, asisten AI yang sangat cerdas, teliti, dan akurat. Tanggal: {tgl}.\n\nPRINSIP UTAMA:\n1. AKURASI: Jawaban harus 100% benar.\n2. KEJELASAN: Bahasa Indonesia baku, mudah dipahami.\n3. SOLUTIF: Langkah konkret.\n4. EMPATI: Tunjukkan pemahaman.\n5. KEAMANAN: Tolak permintaan berbahaya/ilegal dengan sopan.\n\nFORMAT PROBLEM SOLVER:\nBasa basi-\n[Tunjukkan empati + validasi + harapan]\n\nOke jadi begini caranya\n1. [Langkah 1: Diagnosis + solusi + contoh]\n2. [Langkah 2: Solusi lanjutan + contoh]\n3. [Langkah 3: Pencegahan + contoh]\n\nJadi gitu cara mengatasinya\n[Rangkum inti. Motivasi. Tawarkan bantuan. Tutup "Sudah paham kan?"]\n\n{link_instruksi}\n\nATURAN TEKNIS:\n1. Jangan sebut "AI". Anda adalah Orion.\n2. Gunakan ### untuk heading, `-` untuk bullet, **bold** untuk penekanan.\n3. Untuk link: [Nama Toko](url_lengkap)\n4. Jawab langsung ke inti.\n5. TOLAK konten dewasa/kekerasan/senjata/narkoba/ilegal."""
+ full_p=sys_p+f"\n\nJenis: {tingkat}\nPertanyaan user: {prompt}"
+ models=[st.session_state.selected_model,"groq"if st.session_state.selected_model=="gemini"else"gemini"]
+ for try_model in models:
+  try:
+   if try_model=="gemini":
+    toast("Pake Gemini...","✨")
+    content=[full_p]
+    if image:content.append(image)
+    res=gemini_model.generate_content(content,stream=True)
+    full_text="".join([c.text for c in res if c.text])
+   else:
+    toast("Pake Groq...","⚡")
+    chat=groq_client.chat.completions.create(messages=[{"role":"user","content":full_p}],model="llama-3.3-70b-versatile",stream=True)
+    full_text="".join([c.choices[0].delta.content for c in chat if c.choices[0].delta.content])
+   if full_text:return[("text",full_text,tingkat,try_model)]
+  except Exception as e:
+   err=str(e)
+   if"401"in err:toast("API Key salah/expired","❌")
+   elif"429"in err:toast("Limit abis, coba model lain...","⚠️")
+   elif"quota"in err.lower():toast("Quota abis","⚠️")
+   if try_model==models[-1]:return[("text",f"Error: {err[:80]}. Cek API Key di Secrets.","ngobrol")]
+ return[("text","Error gak dikenal bro.","ngobrol")]
+with st.sidebar:
+ st.markdown("### ⚙️ Manage Orion")
+ m=st.selectbox("Pilih Model AI",["Gemini 2.5 Flash","Llama 3.3 70B Groq"],index=0 if st.session_state.selected_model=="gemini"else 1)
+ st.session_state.selected_model="gemini"if m=="Gemini 2.5 Flash"else"groq"
+ if st.button("🗑️ Hapus Semua Chat"):st.session_state.messages=[];st.session_state.chat_count=0;st.rerun()
+ st.metric("Chat Tersisa",f"{MAX_CHAT-st.session_state.chat_count}/{MAX_CHAT}")
 if not st.session_state.messages:
-    st.markdown(f"""<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>""", unsafe_allow_html=True)
-
-if MAX_CHAT - st.session_state.chat_count == 3: st.toast("Sesi ngobrol hampir habis", icon="⚠️")
-
-for i, msg in enumerate(st.session_state.messages):
-    with st.chat_message(msg["role"]):
-        if msg["role"] == "assistant":
-            bc = msg.get("tingkat", "ngobrol"); bt = {"image": "🎨 GAMBAR", "remix": "✨ REMIX", "ngobrol": "💬 NGOBROL", "problem_solver": "💡 SOLUSI"}.get(bc, "💬")
-            st.markdown(f'<div class="orion-badge {bc}">{bt}</div>', unsafe_allow_html=True)
-        if msg["type"] == "image":
-            st.image(msg["content"], use_container_width=True)
-            st.download_button("📥 Unduh", image_to_bytes(msg["content"]), f"orion_{i}.png", "image/png", key=f"dl_{i}", use_container_width=True)
-        else: 
-            st.markdown(msg["content"], unsafe_allow_html=True)
-            if msg["role"] == "assistant" and msg["type"] == "text" and TTS_AVAILABLE:
-                if st.button("🔊 Dengarkan", key=f"tts_{i}", help="Bacakan jawaban"):
-                    audio_files = text_to_speech(msg["content"])
-                    if audio_files:
-                        for idx, audio_fp in enumerate(audio_files):
-                            st.audio(audio_fp, format='audio/mp3')
-
-if len(st.session_state.messages) > 3:
-    col1, col2 = st.columns([10, 1])
-    with col2:
-        if st.button("↓", key="scroll-btn", help="Scroll ke bawah"):
-            st.markdown("<script>window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});</script>", unsafe_allow_html=True)
-
-audio_value = st.audio_input("Rekam suara", key=f"audio_recorder_{st.session_state.chat_count}")
+ st.markdown('<div class="orion-divider"></div>',unsafe_allow_html=True)
+ st.markdown('<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>',unsafe_allow_html=True)
+if MAX_CHAT-st.session_state.chat_count==3:st.toast("Sesi ngobrol hampir habis",icon="⚠️")
+for i,msg in enumerate(st.session_state.messages):
+ with st.chat_message(msg["role"]):
+  if msg["role"]=="assistant":
+   bc=msg.get("tingkat","ngobrol");bt={"image":"🎨 GAMBAR","remix":"✨ REMIX","ngobrol":"💬 NGOBROL","problem_solver":"💡 SOLUSI"}.get(bc,"💬")
+   model="Gemini"if msg.get("model")=="gemini"else"Groq"
+   st.markdown(f'<div class="orion-badge {bc}">{bt}</div><div class="orion-badge model-badge">{model}</div>',unsafe_allow_html=True)
+  if msg["type"]=="image":
+   st.image(msg["content"],use_container_width=True)
+   st.download_button("📥 Unduh",image_to_bytes(msg["content"]),f"orion_{i}.png","image/png",key=f"dl_{i}",use_container_width=True)
+  else:
+   st.markdown(msg["content"],unsafe_allow_html=True)
+   if msg["role"]=="assistant"and msg["type"]=="text"and TTS:
+    col1,col2=st.columns([1,20])
+    with col1:
+     if st.button("🔊",key=f"tts_{i}",help="Dengarkan"):
+      audio_files=text_to_speech(msg["content"])
+      if audio_files:
+       for idx,audio_fp in enumerate(audio_files):st.audio(audio_fp,format='audio/mp3')
+audio_value=st.audio_input("Rekam suara",key=f"audio_recorder_{st.session_state.chat_count}",label_visibility="collapsed")
 if audio_value:
-    current_audio_id = id(audio_value)
-    if st.session_state.audio_processed_id != current_audio_id:
-        st.session_state.audio_processed_id = current_audio_id
-        voice_text = transcribe_audio(audio_value.getvalue())
-        if voice_text:
-            if st.session_state.chat_count >= MAX_CHAT: 
-                st.error("Sesi ngobrol hari ini sudah habis"); st.stop()
-            st.session_state.chat_count += 1
-            st.session_state.messages.append({"role": "user", "type": "text", "content": voice_text})
-            hasil = kirim_ke_ai(voice_text, None)
-            for tipe, konten, *rest in hasil:
-                tingkat = rest[0] if rest else "ngobrol"
-                st.session_state.messages.append({"role": "assistant", "type": tipe, "content": konten, "tingkat": tingkat})
-            st.rerun()
-
-prompt = st.chat_input("Tanya Orion...", accept_file=True, file_type=["jpg","png","jpeg"])
-
+ current_audio_id=id(audio_value)
+ if st.session_state.audio_processed_id!=current_audio_id:
+  st.session_state.audio_processed_id=current_audio_id
+  voice_text=transcribe_audio(audio_value.getvalue())
+  if voice_text:
+   if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
+   st.session_state.chat_count+=1
+   st.session_state.messages.append({"role":"user","type":"text","content":voice_text})
+   hasil=kirim_ke_ai(voice_text,None)
+   for tipe,konten,*rest in hasil:
+    tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
+    st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
+   st.rerun()
+prompt=st.chat_input("Tanya Orion...",accept_file=True,file_type=["jpg","png","jpeg"])
 if prompt:
-    if st.session_state.chat_count >= MAX_CHAT: st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏"); st.stop()
-    st.session_state.chat_count += 1
-    user_text = prompt.text if hasattr(prompt, 'text') else (prompt.get("text", "") if isinstance(prompt, dict) else prompt)
-    user_file = prompt.files[0] if hasattr(prompt, 'files') and prompt.files else (prompt.get("files", [None])[0] if isinstance(prompt, dict) and prompt.get("files") else None)
-    user_img = None
-    if user_file: user_img = Image.open(user_file).convert("RGB"); st.session_state.messages.append({"role": "user", "type": "image", "content": user_img})
-    if user_text: st.session_state.messages.append({"role": "user", "type": "text", "content": user_text})
-    hasil = kirim_ke_ai(user_text, user_img)
-    for tipe, konten, *rest in hasil:
-        tingkat = rest[0] if rest else "ngobrol"
-        st.session_state.messages.append({"role": "assistant", "type": tipe, "content": konten, "tingkat": tingkat})
-    st.rerun()
+ if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏");st.stop()
+ st.session_state.chat_count+=1
+ user_text=prompt.text if hasattr(prompt,'text')else(prompt.get("text","")if isinstance(prompt,dict)else prompt)
+ user_file=prompt.files[0]if hasattr(prompt,'files')and prompt.files else(prompt.get("files",[None])[0]if isinstance(prompt,dict)and prompt.get("files")else None)
+ user_img=None
+ if user_file:user_img=Image.open(user_file).convert("RGB");st.session_state.messages.append({"role":"user","type":"image","content":user_img})
+ if user_text:st.session_state.messages.append({"role":"user","type":"text","content":user_text})
+ hasil=kirim_ke_ai(user_text,user_img)
+ for tipe,konten,*rest in hasil:
+  tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
+  st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
+ st.rerun()
+st.markdown('<div class="footer-fnl">product of F.N.L</div>',unsafe_allow_html=True)
