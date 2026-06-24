@@ -4,6 +4,7 @@ from datetime import datetime
 from gtts import gTTS
 import io
 from PIL import Image
+from streamlit_elements import elements, mui, html
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
@@ -18,96 +19,61 @@ jam = datetime.now().hour
 THEME = "dark" if jam < 6 or jam >= 18 else "light"
 
 if THEME == "dark":
-    BG, TEKS, INPUT_BG, BORDER = "#0b0f19", "#e5e7eb", "#1f2937", "#374151"
-    DOT_COLOR = "#60a5fa"
+    BG, TEKS, INPUT_BG, BORDER, DOT = "#0b0f19", "#e5e7eb", "#1f2937", "#374151", "#60a5fa"
 else:
-    BG, TEKS, INPUT_BG, BORDER = "#ffffff", "#111827", "#f3f4f6", "#e5e7eb"
-    DOT_COLOR = "#2563eb"
+    BG, TEKS, INPUT_BG, BORDER, DOT = "#ffffff", "#111827", "#f3f4f6", "#e5e7eb", "#2563eb"
 
 CSS = f"""
 <style>
 .stApp {{background-color: {BG}; color: {TEKS}}}
 #MainMenu, footer, header {{visibility: hidden}}
-.block-container {{padding-top: 2rem; padding-bottom: 150px}}
+.block-container {{padding-top: 2rem; padding-bottom: 120px}}
 
-.suggest-btn {{
+/* TOMBOL SARAN */
+.stButton button {{
     background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; 
     color: {TEKS}!important; border-radius: 16px!important; 
     padding: 18px!important; text-align: left!important; width: 100%!important;
     margin-bottom: 10px!important;
 }}
-.suggest-btn:hover {{filter: brightness(1.1)}}
+.stButton button:hover {{filter: brightness(1.1)}}
 
-/* ANIMASI 3 TITIK NAIK TURUN → SEGITIGA */
-.loading-container {{
+/* ANIMASI 3 TITIK → SEGITIGA ORION */
+.orion-loading {{
     display: flex; justify-content: center; align-items: center; 
-    height: 50px; margin: 20px 0;
+    height: 60px; width: 80px; margin: 10px auto;
 }}
-.orion-loader {{
-    position: relative; width: 60px; height: 60px;
-}}
-.orion-loader.dot {{
+.orion-dot {{
     position: absolute;
-    width: 12px; height: 12px; background: {DOT_COLOR}; border-radius: 50%;
-    animation: orionAnim 2.5s ease-in-out forwards;
+    width: 12px; height: 12px; background: {DOT}; border-radius: 50%;
 }}
-.orion-loader.dot1 {{left: 0; top: 24px; animation-delay: 0s;}}
-.orion-loader.dot2 {{left: 24px; top: 24px; animation-delay: 0.1s;}}
-.orion-loader.dot3 {{left: 48px; top: 24px; animation-delay: 0.2s;}}
-
-@keyframes orionAnim {{
-    0% {{transform: translateY(0px);}}
-    20% {{transform: translateY(-15px);}} /* Naik */
-    40% {{transform: translateY(15px);}} /* Turun */
-    60% {{transform: translateY(-10px);}} /* Naik lagi */
-    80% {{transform: translateY(10px);}} /* Turun lagi */
-    100% {{ /* STOP DI SEGITIGA ORION */
-        transform: translateY(0);
-    }}
-}}
-.orion-loader.dot1 {{animation-name: toOrion1;}}
-.orion-loader.dot2 {{animation-name: toOrion2;}}
-.orion-loader.dot3 {{animation-name: toOrion3;}}
+.dot1 {{animation: toOrion1 2.5s ease-in-out forwards;}}
+.dot2 {{animation: toOrion2 2.5s ease-in-out forwards;}}
+.dot3 {{animation: toOrion3 2.5s ease-in-out forwards;}}
 
 @keyframes toOrion1 {{
-    0%, 80% {{transform: translate(0, 0);}}
-    100% {{transform: translate(12px, -15px);}} /* Kiri atas */
+    0% {{transform: translate(0px, 0px);}}
+    20% {{transform: translate(0px, -15px);}}
+    40% {{transform: translate(0px, 15px);}}
+    60% {{transform: translate(0px, -10px);}}
+    80% {{transform: translate(0px, 10px);}}
+    100% {{transform: translate(-15px, -12px);}} /* Kiri atas segitiga */
 }}
 @keyframes toOrion2 {{
-    0%, 80% {{transform: translate(0, 0);}}
-    100% {{transform: translate(0, 15px);}} /* Bawah tengah */
+    0% {{transform: translate(0px, 0px);}}
+    20% {{transform: translate(0px, 15px);}}
+    40% {{transform: translate(0px, -15px);}}
+    60% {{transform: translate(0px, 10px);}}
+    80% {{transform: translate(0px, -10px);}}
+    100% {{transform: translate(0px, 15px);}} /* Bawah segitiga */
 }}
 @keyframes toOrion3 {{
-    0%, 80% {{transform: translate(0, 0);}}
-    100% {{transform: translate(-12px, -15px);}} /* Kanan atas */
-}}
-
-/* INPUT BAR CUSTOM 1:1 KAYAK NSC */
-.input-wrapper {{
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    width: 90%; max-width: 700px; z-index: 999;
-}}
-.input-container {{
-    background: {INPUT_BG}; border: 1px solid {BORDER}; border-radius: 25px; 
-    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
-}}
-.stFileUploader {{width: 32px!important;}}
-.stFileUploader section {{padding: 0!important}}
-.stFileUploader section > div {{display: none}}
-.stFileUploader section button {{
-    background: transparent!important; border: 1px solid {BORDER}!important; 
-    border-radius: 50%!important; width: 32px!important; height: 32px!important;
-    min-width: 32px!important; color: {TEKS}!important;
-}}
-.stFileUploader section button:before {{content: '+'; font-size: 20px;}}
-.stTextInput {{flex: 1}}
-.stTextInput input {{
-    background: transparent!important; border: none!important; outline: none!important; 
-    color: {TEKS}!important; font-size: 16px!important; box-shadow: none!important;
-}}
-.stButton button {{
-    background: {DOT_COLOR}!important; border: none!important; border-radius: 50%!important; 
-    width: 32px!important; height: 32px!important; min-width: 32px!important; color: white!important;
+    0% {{transform: translate(0px, 0px);}}
+    20% {{transform: translate(0px, -10px);}}
+    40% {{transform: translate(0px, 10px);}}
+    60% {{transform: translate(0px, -15px);}}
+    80% {{transform: translate(0px, 15px);}}
+    100% {{transform: translate(15px, -12px);}} /* Kanan atas segitiga */
 }}
 </style>
 """
@@ -145,11 +111,11 @@ if not st.session_state.chat:
     
     st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
     
-    if st.button("🖼️ Buat gambar", key="s1", use_container_width=True): 
+    if st.button("🖼️ Buat gambar", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Buatin gambar kucing astronot"}); st.rerun()
-    if st.button("💡 Bantu selesaikan masalah", key="s2", use_container_width=True): 
+    if st.button("💡 Bantu selesaikan masalah", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Bantu aku selesaikan masalah ini"}); st.rerun()
-    if st.button("🎓 Belajar dan berkembang", key="s3", use_container_width=True): 
+    if st.button("🎓 Belajar dan berkembang", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Ajari aku sesuatu yang baru"}); st.rerun()
 
 # TAMPILIN CHAT
@@ -166,16 +132,13 @@ for i, msg in enumerate(st.session_state.chat):
 if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
     with st.chat_message("assistant", avatar="logo.png"):
         # ANIMASI 3 TITIK → SEGITIGA
-        with st.container():
-            st.markdown("""
-            <div class="loading-container">
-                <div class="orion-loader">
-                    <div class="dot dot1"></div>
-                    <div class="dot dot2"></div>
-                    <div class="dot dot3"></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="orion-loading">
+            <div class="orion-dot dot1"></div>
+            <div class="orion-dot dot2"></div>
+            <div class="orion-dot dot3"></div>
+        </div>
+        """, unsafe_allow_html=True)
         
         pesan = st.session_state.chat[-1]["content"]
         gambar = None
@@ -192,30 +155,35 @@ if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
         except Exception as e:
             jawab = f"Error: {str(e)}"
         
-        time.sleep(2.6) # Tunggu animasi selesai
+        time.sleep(2.6) # Nunggu animasi kelar
         st.session_state.chat.append({"role": "assistant", "content": jawab})
         st.session_state.count += 1
         st.rerun()
 
-# INPUT BAR CUSTOM
-st.markdown('<div class="input-wrapper">', unsafe_allow_html=True)
-with st.container():
-    st.markdown('<div class="input-container">', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 10, 1])
-    with col1:
-        uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
-    with col2:
-        prompt = st.text_input("Tanya Orion...", label_visibility="collapsed", key="input", placeholder="Tanya Orion...")
-    with col3:
-        submit = st.button("↑", key="send")
-    st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+# INPUT BAR PAKE streamlit-elements BIAR RAPI 1:1 KAYAK NSC
+with elements("input_bar"):
+    with mui.Box(sx={
+        "position": "fixed", "bottom": "20px", "left": "50%", "transform": "translateX(-50%)",
+        "width": "90%", "maxWidth": "700px", "background": INPUT_BG, 
+        "border": f"1px solid {BORDER}", "borderRadius": "25px", "padding": "8px 12px",
+        "display": "flex", "alignItems": "center", "gap": "8px", "zIndex": 999
+    }):
+        # TOMBOL +
+        uploaded_file = mui.IconButton(html.I(className="fa-solid fa-plus"), sx={"border": f"1px solid {BORDER}", "borderRadius": "50%", "color": TEKS})
+        # INPUT TEKS
+        prompt = mui.TextField(variant="standard", placeholder="Tanya Orion...", sx={"flex": 1, "input": {"color": TEKS}}, InputProps={"disableUnderline": True})
+        # TOMBOL KIRIM
+        submit = mui.IconButton(html.I(className="fa-solid fa-arrow-up"), sx={"background": DOT, "borderRadius": "50%", "color": "white"})
 
-if submit and st.session_state.count < MAX_CHAT:
-    if uploaded_file:
-        st.session_state.chat.append({"role": "user", "content": uploaded_file})
-    elif prompt:
+# HACK: Pake st.file_uploader tersembunyi + st.chat_input asli biar fungsi
+uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+if prompt := st.chat_input("Tanya Orion..."):
+    if st.session_state.count < MAX_CHAT:
         st.session_state.chat.append({"role": "user", "content": prompt})
+        st.rerun()
+    else:
+        st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
+
+if uploaded_file:
+    st.session_state.chat.append({"role": "user", "content": uploaded_file})
     st.rerun()
-elif submit:
-    st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
