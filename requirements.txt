@@ -2,4 +2,4 @@ streamlit
 requests
 gTTS
 Pillow
-streamlit-lottie
+streamlit-elements==0.1.*
