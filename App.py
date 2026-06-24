@@ -32,7 +32,7 @@ CSS = f"""
 /* HEADER ABU2 */
 .header-abu {{color: {ABU}; font-size: 14px; margin-bottom: 8px;}}
 
-/* TOMBOL SARAN GEDE ROUNDED */
+/* TOMBOL SARAN */
 .stButton button {{
     background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; 
     color: {TEKS}!important; border-radius: 24px!important; 
@@ -94,43 +94,56 @@ CSS = f"""
     100% {{transform: translate(15px, -12px);}}
 }}
 
-/* INPUT BAR FIX - TOMBOL + DAN 🎤 NYATU */
-[data-testid="stBottom"] {{background: {BG};}}
+/* INPUT BAR FIX - + DAN 🎤 DI DALEM KIRI */
 .stChatInput {{display: none}}
+[data-testid="stBottom"] {{background: {BG};}}
 .input-container {{
     position: fixed; bottom: 0; left: 0; right: 0; 
-    background: {BG}; padding: 16px 0; z-index: 999;
+    background: {BG}; padding: 16px 0 24px 0; z-index: 999;
 }}
 .input-row {{
     max-width: 720px; margin: 0 auto; background: {INPUT_BG}; 
     border: 1px solid {BORDER}; border-radius: 28px; 
-    padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+    padding: 8px 8px 8px 14px; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }}
-.upload-btn {{
+
+/* HIDE FILE UPLOADER, GANTI TOMBOL + */
+[data-testid="stFileUploader"] {{
+    position: relative; width: 36px!important; height: 36px!important;
+}}
+[data-testid="stFileUploader"] section {{padding: 0!important; height: 36px!important;}}
+[data-testid="stFileUploader"] section > div {{display: none}}
+[data-testid="stFileUploader"] section button {{
     background: transparent!important; border: 1px solid {BORDER}!important; 
     border-radius: 50%!important; width: 36px!important; height: 36px!important;
-    min-width: 36px!important; color: {TEKS}!important; font-size: 20px!important;
+    min-width: 36px!important; color: {TEKS}!important; position: absolute; top: 0; left: 0;
 }}
+[data-testid="stFileUploader"] section button:before {{
+    content: '+'; font-size: 22px; font-weight: 300;
+}}
+
+/* TOMBOL MIC */
 .mic-btn {{
     background: transparent!important; border: 1px solid {BORDER}!important; 
     border-radius: 50%!important; width: 36px!important; height: 36px!important;
     min-width: 36px!important; color: {TEKS}!important; font-size: 18px!important;
 }}
-.send-btn {{
-    background: {DOT}!important; border: none!important; border-radius: 50%!important; 
-    width: 36px!important; height: 36px!important; min-width: 36px!important; color: white!important;
-}}
 
-/* HIDE FILE UPLOADER LABEL */
-[data-testid="stFileUploader"] {{width: 36px!important;}}
-[data-testid="stFileUploader"] section {{padding: 0!important}}
-[data-testid="stFileUploader"] section > div {{display: none}}
-[data-testid="stFileUploader"] section button {{
-    background: transparent!important; border: 1px solid {BORDER}!important; 
-    border-radius: 50%!important; width: 36px!important; height: 36px!important;
-    min-width: 36px!important; color: {TEKS}!important;
+/* INPUT TEKS */
+.stTextInput {{flex: 1}}
+.stTextInput input {{
+    background: transparent!important; border: none!important; outline: none!important; 
+    color: {TEKS}!important; font-size: 16px!important; box-shadow: none!important;
 }}
-[data-testid="stFileUploader"] section button:before {{content: '+'; font-size: 22px;}}
+.stTextInput > div > div {{background: transparent!important;}}
+
+/* TOMBOL KIRIM */
+.stFormSubmitButton button {{
+    background: {DOT}!important; border: none!important; border-radius: 50%!important; 
+    width: 36px!important; height: 36px!important; min-width: 36px!important; 
+    color: white!important; font-size: 18px!important;
+}}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -214,7 +227,7 @@ for i, msg in enumerate(st.session_state.chat):
         if isinstance(msg["content"], str):
             col1, col2 = st.columns([5, 1])
             with col2:
-                if st.button("🔊 Dengerin", key=f"tts_{i}", help="Dengerin jawaban"):
+                if st.button("🔊 Dengerin", key=f"tts_{i}"):
                     audio = tts_teks(msg["content"])
                     if audio: st.audio(audio, format="audio/mp3")
 
@@ -250,28 +263,33 @@ if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
     st.session_state.count += 1
     st.rerun()
 
-# INPUT BAR FIX - TOMBOL + DAN 🎤
+# INPUT BAR FIX - + DAN 🎤 DI DALEM KIRI
 with st.container():
-    col1, col2, col3 = st.columns([1, 1, 10])
-    with col1:
-        uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
-    with col2:
-        mic_file = st.file_uploader("", type=["wav", "mp3"], label_visibility="collapsed", key="mic")
-        st.markdown('<button class="mic-btn">🎤</button>', unsafe_allow_html=True)
-    with col3:
-        if prompt := st.chat_input("Tanya Orion..."):
-            if st.session_state.count < MAX_CHAT:
+    st.markdown('<div class="input-container"><div class="input-row">', unsafe_allow_html=True)
+    
+    with st.form("input_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns([1, 1, 10, 1])
+        
+        with col1:
+            uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
+        with col2:
+            mic_file = st.file_uploader("", type=["wav", "mp3"], label_visibility="collapsed", key="mic")
+            st.markdown('<button class="mic-btn">🎤</button>', unsafe_allow_html=True)
+        with col3:
+            prompt = st.text_input("Tanya Orion...", label_visibility="collapsed", placeholder="Tanya Orion...")
+        with col4:
+            submit = st.form_submit_button("↑")
+        
+        if submit and st.session_state.count < MAX_CHAT:
+            if mic_file:
+                teks_mic = voice_to_text(mic_file)
+                if teks_mic: st.session_state.chat.append({"role": "user", "content": teks_mic})
+            elif uploaded_file:
+                st.session_state.chat.append({"role": "user", "content": uploaded_file})
+            elif prompt:
                 st.session_state.chat.append({"role": "user", "content": prompt})
-                st.rerun()
-            else:
-                st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
-
-if uploaded_file:
-    st.session_state.chat.append({"role": "user", "content": uploaded_file})
-    st.rerun()
-
-if mic_file:
-    teks_mic = voice_to_text(mic_file)
-    if teks_mic: 
-        st.session_state.chat.append({"role": "user", "content": teks_mic})
-        st.rerun()
+            st.rerun()
+        elif submit:
+            st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
+    
+    st.markdown('</div></div>', unsafe_allow_html=True)
