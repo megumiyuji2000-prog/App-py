@@ -17,31 +17,25 @@ if "model" not in st.session_state: st.session_state.model = "gemini"
 MAX = 70
 now = datetime.now(pytz.timezone('Asia/Jakarta'))
 IS_DARK = now.hour < 6 or now.hour >= 18
-ICON_COLOR = "#FFFFFF" if IS_DARK else "#000000"
-BG = "#0A0A0B" if IS_DARK else "#FFFFFF"
-INPUT_BG = "#1C1C1E" if IS_DARK else "#F2F2F7"
-BORDER = "#3A3A3C" if IS_DARK else "#E5E5EA"
+ICON = "#FFF" if IS_DARK else "#000"
+BG = "#000" if IS_DARK else "#FFF"
+INPUT = "#1C1C1E" if IS_DARK else "#F2F2F7"
 
-# CSS - 2 tombol dalem input
+# UI
 st.markdown(f"""
 <style>
-.stApp {{background:{BG}}}
-.block-container{{padding-bottom:140px;max-width:720px}}
-.header{{position:fixed;top:0;left:0;right:0;height:50px;background:{BG};z-index:100;display:flex;align-items:center;justify-content:flex-end;padding:0 20px}}
-.counter{{background:{INPUT_BG};padding:5px 12px;border-radius:16px;font-size:13px;color:{'#AAA' if IS_DARK else '#666'}}}
-.title{{font-size:34px;font-weight:700;margin:70px 0 30px 0;color:{'#FFF' if IS_DARK else '#000'}}}
-.card{{background:{INPUT_BG};border:1px solid {BORDER};border-radius:16px;padding:18px;margin-bottom:12px;font-size:16px;color:{'#FFF' if IS_DARK else '#000'}}}
-/* INPUT PILL */
-[data-testid="stChatInput"]{{position:fixed!important;bottom:25px!important;left:50%!important;transform:translateX(-50%)!important;width:92%!important;max-width:700px!important;z-index:1000}}
-[data-testid="stChatInput"] > div{{background:{INPUT_BG}!important;border:1px solid {BORDER}!important;border-radius:24px!important;padding-left:88px!important;height:52px!important;display:flex!important;align-items:center!important}}
-[data-testid="stChatInput"] input{{background:transparent!important;border:none!important;color:{'#FFF' if IS_DARK else '#000'}!important;font-size:16px!important}}
-/* SEMBUNYIKAN UPLOADER ASLI */
-[data-testid="stFileUploader"], [data-testid="stAudioInput"]{{display:none!important}}
+.stApp{{background:{BG}}}
+.block-container{{padding-top:60px;padding-bottom:160px;max-width:700px}}
+.counter{{position:fixed;top:12px;right:20px;background:{INPUT};padding:5px 12px;border-radius:16px;font-size:13px;z-index:999;color:{ICON}}}
+.title{{font-size:32px;font-weight:700;margin:60px 0 25px;color:{ICON}}}
+.card{{background:{INPUT};border-radius:16px;padding:18px;margin-bottom:10px;color:{ICON}}}
+.input-wrap{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:94%;max-width:680px;background:{INPUT};border-radius:26px;height:52px;display:flex;align-items:center;padding:0 12px;gap:8px;z-index:9999}}
+.input-wrap button{{width:34px;height:34px;border:none;background:transparent;color:{ICON};font-size:22px;border-radius:50%}}
+.input-wrap input{{flex:1;background:transparent;border:none;outline:none;color:{ICON};font-size:16px}}
 </style>
-<div class="header"><div class="counter">{st.session_state.count}/({MAX})</div></div>
+<div class="counter">{st.session_state.count}/({MAX})</div>
 """, unsafe_allow_html=True)
 
-# NOTIF
 if 0 < MAX - st.session_state.count <= 3:
     st.toast(f"waduh waktu ngobrol sisa {MAX - st.session_state.count} Kali lagi, nih siap-siap ya", icon="⚠️")
 
@@ -54,9 +48,9 @@ def ask(p):
     if "gambar" in p.lower():
         st.toast("maaf jika gambar kurang memuaskan🙏", icon="🎨")
         try:
-            r = requests.get(f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p)}?width=1024&height=1024", timeout=50)
-            return Image.open(io.BytesIO(r.content)) if r.status_code==200 else "Gagal"
-        except: return "Error"
+            r = requests.get(f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p)}", timeout=50)
+            return Image.open(io.BytesIO(r.content))
+        except: return None
     try:
         if st.session_state.model == "gemini":
             return gemini.generate_content(p, request_options={"timeout":50}).text
@@ -66,84 +60,71 @@ def ask(p):
         st.toast("aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏", icon="😅")
         return "aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏"
 
-# SIDEBAR
+# Sidebar
 with st.sidebar:
-    m = st.selectbox("Model", ["Gemini","Groq"], index=0 if st.session_state.model=="gemini" else 1)
+    m = st.selectbox("Model", ["Gemini","Groq"])
     new = "gemini" if m=="Gemini" else "groq"
     if new!= st.session_state.model:
         st.session_state.model = new
         st.toast(f"Pindah ke {m}", icon="🔄")
 
-# OPENING
+# Opening
 if not st.session_state.msgs:
-    st.markdown('<div class="title">Ada yang bisa<br>Orion bantu?</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="title">Ada yang bisa<br>Orion bantu?</div>', unsafe_allow_html=True)
     st.markdown('<div class="card">🖼️ Buat gambar</div>', unsafe_allow_html=True)
     st.markdown('<div class="card">💡 Bantu selesaikan masalah</div>', unsafe_allow_html=True)
     st.markdown('<div class="card">🎓 Belajar dan berkembang</div>', unsafe_allow_html=True)
 
-# CHAT
+# Chat
 for m in st.session_state.msgs:
-    with st.chat_message(m["role"]):
-        if m["t"]=="img": st.image(m["c"], use_container_width=True)
+    with st.chat_message(m["r"]):
+        if m["t"]=="i": st.image(m["c"], use_container_width=True)
         else: st.write(m["c"])
 
-# HIDDEN UPLOADERS
-up = st.file_uploader("", type=["jpg","png"], key="up", label_visibility="collapsed")
-au = st.audio_input("", key=f"au{st.session_state.count}", label_visibility="collapsed")
+# INPUT CUSTOM DENGAN 2 TOMBOL DI DALEM
+st.markdown('<div class="input-wrap">', unsafe_allow_html=True)
+c1, c2, c3 = st.columns([1,1,10])
+with c1:
+    up = st.file_uploader("", type=["jpg","png"], key="u", label_visibility="collapsed")
+with c2:
+    au = st.audio_input("", key=f"a{st.session_state.count}", label_visibility="collapsed")
+with c3:
+    txt = st.text_input("", placeholder="Tanya Orion...", key="t", label_visibility="collapsed")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# INJECT 2 TOMBOL DALEM INPUT
+# Style tombol jadi + dan mic
 st.markdown(f"""
-<script>
-function addBtns(){{
-  const box = document.querySelector('[data-testid="stChatInput"] > div');
-  if(!box || document.getElementById('btn-plus')) return;
-
-  // Tombol +
-  const plus = document.createElement('button');
-  plus.id = 'btn-plus';
-  plus.innerHTML = '+';
-  plus.style.cssText = 'position:absolute;left:14px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:none;background:transparent;color:{ICON_COLOR};font-size:26px;font-weight:300;cursor:pointer;z-index:1001;line-height:1';
-  plus.onclick = () => document.querySelector('[data-testid="stFileUploader"] input').click();
-  box.appendChild(plus);
-
-  // Tombol mic
-  const mic = document.createElement('button');
-  mic.id = 'btn-mic';
-  mic.innerHTML = '🎤';
-  mic.style.cssText = 'position:absolute;left:50px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:none;background:transparent;color:{ICON_COLOR};font-size:18px;cursor:pointer;z-index:1001';
-  mic.onclick = () => document.querySelector('[data-testid="stAudioInput"] button').click();
-  box.appendChild(mic);
-}}
-setInterval(addBtns, 400);
-</script>
+<style>
+[data-testid="stFileUploader"]{{width:34px!important}}
+[data-testid="stFileUploader"] section{{padding:0!important;border:none!important;background:transparent!important}}
+[data-testid="stFileUploader"] button{{width:34px!important;height:34px!important;min-height:34px!important;background:transparent!important;border:none!important;color:{ICON}!important;font-size:0!important}}
+[data-testid="stFileUploader"] button::after{{content:"+";font-size:26px!important;position:absolute;top:-2px;left:7px}}
+[data-testid="stAudioInput"]{{width:34px!important}}
+[data-testid="stAudioInput"] button{{width:34px!important;height:34px!important;background:transparent!important;border:none!important;color:{ICON}!important}}
+[data-testid="stTextInput"] input{{background:transparent!important;border:none!important;color:{ICON}!important}}
+</style>
 """, unsafe_allow_html=True)
 
-# HANDLE
+# Handle
 if up and st.session_state.count < MAX:
     st.session_state.count += 1
-    img = Image.open(up).convert("RGB")
-    st.session_state.msgs.append({"role":"user","t":"img","c":img})
+    st.session_state.msgs.append({"r":"user","t":"i","c":Image.open(up).convert("RGB")})
     st.rerun()
 
 if au and st.session_state.count < MAX:
     try:
-        txt = groq.audio.transcriptions.create(file=("a.wav", au.getvalue()), model="whisper-large-v3", language="id").text
-        if txt:
+        t = groq.audio.transcriptions.create(file=("a.wav", au.getvalue()), model="whisper-large-v3", language="id").text
+        if t:
             st.session_state.count += 1
-            st.session_state.msgs.append({"role":"user","t":"text","c":txt})
-            ans = ask(txt)
-            st.session_state.msgs.append({"role":"assistant","t":"text","c":ans})
+            st.session_state.msgs.append({"r":"user","t":"t","c":t})
+            a = ask(t)
+            st.session_state.msgs.append({"r":"assistant","t":"i" if isinstance(a, Image.Image) else "t","c":a})
             st.rerun()
     except: pass
 
-# INPUT
-p = st.chat_input("Tanya Orion...")
-if p and st.session_state.count < MAX:
+if txt and st.session_state.count < MAX:
     st.session_state.count += 1
-    st.session_state.msgs.append({"role":"user","t":"text","c":p})
-    ans = ask(p)
-    if isinstance(ans, Image.Image):
-        st.session_state.msgs.append({"role":"assistant","t":"img","c":ans})
-    else:
-        st.session_state.msgs.append({"role":"assistant","t":"text","c":ans})
+    st.session_state.msgs.append({"r":"user","t":"t","c":txt})
+    a = ask(txt)
+    st.session_state.msgs.append({"r":"assistant","t":"i" if isinstance(a, Image.Image) else "t","c":a})
     st.rerun()
