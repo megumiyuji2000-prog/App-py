@@ -32,8 +32,6 @@ def cek_sensitif(t):
   if k in t.lower():return True,k
  return False,None
 st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}}}.block-container{{padding-top:1rem!important;padding-bottom:220px!important;max-width:48rem!important}}.orion-logo{{position:fixed;top:16px;right:16px;z-index:999;width:32px;height:32px}}.orion-logo img{{border-radius:8px}}.chat-counter{{position:fixed;top:60px;right:16px;z-index:999;background:{T['chat_bg']};border:1px solid {T['border']};border-radius:20px;padding:6px 14px;font-size:0.8rem;color:{T['badge_text']};font-weight:600}}.stButton>button[data-testid="scroll-btn"]{{position:fixed!important;bottom:150px!important;right:20px!important;width:36px!important;height:36px!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:50%!important;z-index:998!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 8px rgba(0,0,0,.25)!important;padding:0!important;min-height:36px!important}}.stButton>button[data-testid="scroll-btn"]:hover{{background:{T['user_bg']}!important}}.stButton>button[data-testid="scroll-btn"] p{{font-size:18px!important;margin:0!important;color:{T['text']}!important}}.meta-opening{{margin-top:20vh;margin-bottom:2rem}}.meta-title{{font-size:2.25rem;font-weight:700;color:{T['text']};margin-bottom:2.5rem;line-height:1.1;letter-spacing:-0.02em}}.meta-btn{{display:flex;width:100%;text-align:left;padding:16px 20px;margin-bottom:14px;background-color:{T['chat_bg']};border:1px solid {T['border']};border-radius:28px;color:{T['text']};font-size:1rem;cursor:pointer;transition:all.2s;align-items:center}}.meta-btn:hover{{border-color:{T['primary']};background-color:{T['user_bg']}}}.meta-btn-icon{{margin-right:14px;font-size:1.2rem}}.stChatMessage{{padding:0.5rem 0!important}}[data-testid="stChatMessageAvatar"]{{background-color:#EF4444!important}}.stChatMessage[data-testid*="assistant"] [data-testid="stChatMessageAvatar"]{{background-color:#F97316!important}}[data-testid="stChatMessageContent"]{{background-color:{T['chat_bg']}!important;border-radius:20px!important;padding:16px 20px!important;color:{T['text']}!important;border:1px solid {T['border']};line-height:1.7;font-size:0.95rem;margin-left:8px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bg']}!important}}.stChatInput{{position:fixed!important;bottom:30px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:{T['bg']}!important;z-index:1001!important}}.stChatInput>div{{background-color:{T['bg']}!important;border:1.5px solid {T['primary']}!important;border-radius:28px!important;padding:2px!important}}.orion-badge{{display:inline-block;font-size:.7rem;padding:4px 10px;border-radius:12px;margin-bottom:10px;margin-right:6px;font-weight:600;background-color:{T['badge_bg']};color:{T['badge_text']};border:1px solid {T['border']}}}.model-badge{{background:#A78BFA;color:white}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:{T['badge_bg']};border:1px solid {T['border']};border-radius:50%;width:32px;height:32px;margin-top:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;color:{T['badge_text']}}}.tts-icon:hover{{background:{T['user_bg']};color:{T['text']}}}[data-testid="stAudioInput"]{{margin-bottom:10px!important}}.footer-fnl{{position:fixed;bottom:5px;left:50%;transform:translateX(-50%);font-size:0.7rem;color:{T['badge_text']};z-index:1000}}
-
-/* FIX TOMBOL + DAN 🎤 DI DALEM INPUT */
 [data-testid="stFileUploader"]{{position:absolute;left:12px;bottom:12px;z-index:1002;width:36px!important;}}
 [data-testid="stFileUploader"] section{{padding:0!important}}
 [data-testid="stFileUploader"] section > div{{display:none}}
@@ -43,8 +41,6 @@ st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Int
     min-width:36px!important;color:{T['text']}!important;
 }}
 [data-testid="stFileUploader"] section button:before{{content:'+';font-size:22px;font-weight:300;}}
-
-/* LOADING 3 TITIK → SEGITIGA */
 .orion-loading {{
     display:flex;justify-content:flex-end;align-items:center;
     height:60px;width:80px;margin:10px 0;position:relative;
@@ -81,7 +77,6 @@ st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Int
 }}
 </style>""",unsafe_allow_html=True)
 
-# LOGO KECIL KANAN ATAS
 try:
  with open("logo.png","rb")as f:data=base64.b64encode(f.read()).decode()
  st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>',unsafe_allow_html=True)
@@ -257,4 +252,6 @@ if mic_file:
     if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
     st.session_state.chat_count+=1
     st.session_state.show_home=False
-    voice_text=transcribe_audio(
+    voice_text=transcribe_audio(mic_file.getvalue())
+    if voice_text: 
+        st.session_state.messages.append({"role":"user","ty
