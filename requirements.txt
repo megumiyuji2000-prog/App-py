@@ -1,6 +1,5 @@
-streamlit>=1.38.0
-google-generativeai
-groq
-Pillow
-pytz
+streamlit
+requests
 gTTS
+Pillow
+streamlit-lottie
