@@ -19,14 +19,17 @@ THEME = "dark" if jam < 6 or jam >= 18 else "light"
 
 if THEME == "dark":
     BG, TEKS, INPUT_BG, BORDER = "#0b0f19", "#e5e7eb", "#1f2937", "#374151"
+    DOT_COLOR = "#60a5fa"
 else:
     BG, TEKS, INPUT_BG, BORDER = "#ffffff", "#111827", "#f3f4f6", "#e5e7eb"
+    DOT_COLOR = "#2563eb"
 
 CSS = f"""
 <style>
 .stApp {{background-color: {BG}; color: {TEKS}}}
-.stChatInput {{display: none}}
 #MainMenu, footer, header {{visibility: hidden}}
+.block-container {{padding-top: 2rem; padding-bottom: 150px}}
+
 .suggest-btn {{
     background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; 
     color: {TEKS}!important; border-radius: 16px!important; 
@@ -35,44 +38,76 @@ CSS = f"""
 }}
 .suggest-btn:hover {{filter: brightness(1.1)}}
 
-/* LOADING 3 TITIK → SEGITIGA */
-.loading-dots {{
+/* ANIMASI 3 TITIK NAIK TURUN → SEGITIGA */
+.loading-container {{
     display: flex; justify-content: center; align-items: center; 
-    height: 40px; gap: 8px;
+    height: 50px; margin: 20px 0;
 }}
-.dot {{
-    width: 10px; height: 10px; background: #60a5fa; border-radius: 50%;
-    animation: bounce 1.4s infinite ease-in-out both;
+.orion-loader {{
+    position: relative; width: 60px; height: 60px;
 }}
-.dot:nth-child(1) {{animation-delay: -0.32s}}
-.dot:nth-child(2) {{animation-delay: -0.16s}}
-@keyframes bounce {{
-    0%, 80%, 100% {{transform: scale(0);}} 
-    40% {{transform: scale(1.0);}}
+.orion-loader.dot {{
+    position: absolute;
+    width: 12px; height: 12px; background: {DOT_COLOR}; border-radius: 50%;
+    animation: orionAnim 2.5s ease-in-out forwards;
 }}
-.triangle {{
-    width: 0; height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 14px solid #60a5fa;
-    animation: fadeIn 0.3s;
-}}
-@keyframes fadeIn {{from {{opacity: 0}} to {{opacity: 1}}}}
+.orion-loader.dot1 {{left: 0; top: 24px; animation-delay: 0s;}}
+.orion-loader.dot2 {{left: 24px; top: 24px; animation-delay: 0.1s;}}
+.orion-loader.dot3 {{left: 48px; top: 24px; animation-delay: 0.2s;}}
 
-/* INPUT CUSTOM KAYAK NSC */
-.custom-input {{
+@keyframes orionAnim {{
+    0% {{transform: translateY(0px);}}
+    20% {{transform: translateY(-15px);}} /* Naik */
+    40% {{transform: translateY(15px);}} /* Turun */
+    60% {{transform: translateY(-10px);}} /* Naik lagi */
+    80% {{transform: translateY(10px);}} /* Turun lagi */
+    100% {{ /* STOP DI SEGITIGA ORION */
+        transform: translateY(0);
+    }}
+}}
+.orion-loader.dot1 {{animation-name: toOrion1;}}
+.orion-loader.dot2 {{animation-name: toOrion2;}}
+.orion-loader.dot3 {{animation-name: toOrion3;}}
+
+@keyframes toOrion1 {{
+    0%, 80% {{transform: translate(0, 0);}}
+    100% {{transform: translate(12px, -15px);}} /* Kiri atas */
+}}
+@keyframes toOrion2 {{
+    0%, 80% {{transform: translate(0, 0);}}
+    100% {{transform: translate(0, 15px);}} /* Bawah tengah */
+}}
+@keyframes toOrion3 {{
+    0%, 80% {{transform: translate(0, 0);}}
+    100% {{transform: translate(-12px, -15px);}} /* Kanan atas */
+}}
+
+/* INPUT BAR CUSTOM 1:1 KAYAK NSC */
+.input-wrapper {{
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    width: 90%; max-width: 700px; background: {INPUT_BG}; 
-    border: 1px solid {BORDER}; border-radius: 25px; padding: 8px;
-    display: flex; align-items: center; gap: 8px;
+    width: 90%; max-width: 700px; z-index: 999;
 }}
-.custom-input input {{
-    flex: 1; background: transparent; border: none; outline: none; 
-    color: {TEKS}; font-size: 16px;
+.input-container {{
+    background: {INPUT_BG}; border: 1px solid {BORDER}; border-radius: 25px; 
+    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
 }}
-.icon-btn {{
-    background: transparent; border: 1px solid {BORDER}; border-radius: 50%;
-    width: 32px; height: 32px; cursor: pointer; color: {TEKS};
+.stFileUploader {{width: 32px!important;}}
+.stFileUploader section {{padding: 0!important}}
+.stFileUploader section > div {{display: none}}
+.stFileUploader section button {{
+    background: transparent!important; border: 1px solid {BORDER}!important; 
+    border-radius: 50%!important; width: 32px!important; height: 32px!important;
+    min-width: 32px!important; color: {TEKS}!important;
+}}
+.stFileUploader section button:before {{content: '+'; font-size: 20px;}}
+.stTextInput {{flex: 1}}
+.stTextInput input {{
+    background: transparent!important; border: none!important; outline: none!important; 
+    color: {TEKS}!important; font-size: 16px!important; box-shadow: none!important;
+}}
+.stButton button {{
+    background: {DOT_COLOR}!important; border: none!important; border-radius: 50%!important; 
+    width: 32px!important; height: 32px!important; min-width: 32px!important; color: white!important;
 }}
 </style>
 """
@@ -80,7 +115,7 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 def tts_teks(teks):
     try:
-        teks_bersih = teks.replace('*', '').replace('#', '').replace('`', '').replace('_', '')
+        teks_bersih = ''.join(c for c in teks if c.isalnum() or c.isspace())
         tts = gTTS(text=teks_bersih, lang='id', slow=False)
         mp3_fp = io.BytesIO()
         tts.write_to_fp(mp3_fp)
@@ -127,59 +162,60 @@ for i, msg in enumerate(st.session_state.chat):
                 audio = tts_teks(msg["content"])
                 if audio: st.audio(audio, format="audio/mp3")
 
-# INPUT CUSTOM + LOADING 3 TITIK → SEGITIGA
-with st.container():
-    st.markdown('<div style="height: 100px"></div>', unsafe_allow_html=True) # Spacer
-    
-    # LOADING ANIMATION
-    if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
-        with st.chat_message("assistant", avatar="logo.png"):
-            loading_placeholder = st.empty()
-            # 1. Titik naik turun 2 detik
-            with loading_placeholder:
-                st.markdown('<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>', unsafe_allow_html=True)
-            time.sleep(2)
-            # 2. Berubah jadi segitiga
-            with loading_placeholder:
-                st.markdown('<div class="loading-dots"><div class="triangle"></div></div>', unsafe_allow_html=True)
-            time.sleep(0.5)
-            
-            # PROSES JAWABAN
-            pesan = st.session_state.chat[-1]["content"]
-            gambar = None
-            if not isinstance(pesan, str):
-                gambar = pesan
-                pesan = "Jelaskan isi foto ini"
-            
-            try:
-                if any(k in str(pesan).lower() for k in ["gambar", "buatin", "lukis"]):
-                    url = f"https://image.pollinations.ai/prompt/{pesan}"
-                    jawab = f"![Hasil]({url})"
-                else:
-                    jawab = kirim_ke_gemini(pesan, gambar)
-            except Exception as e:
-                jawab = f"Error: {str(e)}"
-            
-            loading_placeholder.empty()
-            st.session_state.chat.append({"role": "assistant", "content": jawab})
-            st.session_state.count += 1
-            st.rerun()
+# PROSES JAWABAN + LOADING ANIMASI
+if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
+    with st.chat_message("assistant", avatar="logo.png"):
+        # ANIMASI 3 TITIK → SEGITIGA
+        with st.container():
+            st.markdown("""
+            <div class="loading-container">
+                <div class="orion-loader">
+                    <div class="dot dot1"></div>
+                    <div class="dot dot2"></div>
+                    <div class="dot dot3"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        pesan = st.session_state.chat[-1]["content"]
+        gambar = None
+        if not isinstance(pesan, str):
+            gambar = pesan
+            pesan = "Jelaskan isi foto ini"
+        
+        try:
+            if any(k in str(pesan).lower() for k in ["gambar", "buatin", "lukis"]):
+                url = f"https://image.pollinations.ai/prompt/{pesan}"
+                jawab = f"![Hasil]({url})"
+            else:
+                jawab = kirim_ke_gemini(pesan, gambar)
+        except Exception as e:
+            jawab = f"Error: {str(e)}"
+        
+        time.sleep(2.6) # Tunggu animasi selesai
+        st.session_state.chat.append({"role": "assistant", "content": jawab})
+        st.session_state.count += 1
+        st.rerun()
 
-# INPUT BAR BAWAH - PAKE FORM BIAR GAK KOTAK UPLOAD MUNCUL
-with st.form("input_form", clear_on_submit=True):
+# INPUT BAR CUSTOM
+st.markdown('<div class="input-wrapper">', unsafe_allow_html=True)
+with st.container():
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 10, 1])
     with col1:
-        uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+        uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
     with col2:
-        prompt = st.text_input("Tanya Orion...", label_visibility="collapsed")
+        prompt = st.text_input("Tanya Orion...", label_visibility="collapsed", key="input", placeholder="Tanya Orion...")
     with col3:
-        submit = st.form_submit_button("↑")
-    
-    if submit and st.session_state.count < MAX_CHAT:
-        if uploaded_file:
-            st.session_state.chat.append({"role": "user", "content": uploaded_file})
-        elif prompt:
-            st.session_state.chat.append({"role": "user", "content": prompt})
-        st.rerun()
-    elif submit:
-        st.error(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
+        submit = st.button("↑", key="send")
+    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+if submit and st.session_state.count < MAX_CHAT:
+    if uploaded_file:
+        st.session_state.chat.append({"role": "user", "content": uploaded_file})
+    elif prompt:
+        st.session_state.chat.append({"role": "user", "content": prompt})
+    st.rerun()
+elif submit:
+    st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
