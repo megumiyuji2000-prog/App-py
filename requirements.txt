@@ -4,3 +4,4 @@ gTTS
 Pillow
 SpeechRecognition
 pydub
+streamlit-chat
