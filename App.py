@@ -5,7 +5,6 @@ from gtts import gTTS
 import io
 from PIL import Image
 import speech_recognition as sr
-from pydub import AudioSegment
 
 st.set_page_config(page_title="Orion AI", page_icon="logo.png", layout="centered")
 
@@ -28,41 +27,40 @@ CSS = f"""
 <style>
 .stApp {{background-color: {BG}; color: {TEKS}}}
 #MainMenu, footer, header {{visibility: hidden}}
-.block-container {{padding-top: 1rem; padding-bottom: 150px; max-width: 720px}}
+.block-container {{padding-top: 1rem; padding-bottom: 120px; max-width: 720px}}
 
 /* HEADER ABU2 */
 .header-abu {{color: {ABU}; font-size: 14px; margin-bottom: 8px;}}
 
-/* TOMBOL SARAN */
+/* TOMBOL SARAN GEDE ROUNDED */
 .stButton button {{
     background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; 
-    color: {TEKS}!important; border-radius: 20px!important; 
-    padding: 18px 20px!important; text-align: left!important; width: 100%!important;
-    margin-bottom: 12px!important; font-size: 16px!important;
+    color: {TEKS}!important; border-radius: 24px!important; 
+    padding: 20px 24px!important; text-align: left!important; width: 100%!important;
+    margin-bottom: 12px!important; font-size: 16px!important; font-weight: 500!important;
 }}
 
-/* BUBBLE CHAT CUSTOM - USER KIRI, ORION KANAN */
-.chat-row {{width: 100%; display: flex; margin-bottom: 16px;}}
+/* BUBBLE CHAT - USER KIRI, ORION KANAN */
+.chat-row {{width: 100%; display: flex; margin-bottom: 20px;}}
 .user-row {{justify-content: flex-start;}}
 .ai-row {{justify-content: flex-end;}}
 .chat-bubble {{
-    max-width: 75%; padding: 12px 16px; border-radius: 18px;
-    word-wrap: break-word; font-size: 16px; line-height: 1.5;
+    max-width: 75%; padding: 14px 18px; border-radius: 20px;
+    word-wrap: break-word; font-size: 16px; line-height: 1.6;
 }}
-.user-bubble {{background: {BUBBLE_USER}; color: {TEKS}; border-bottom-left-radius: 4px;}}
-.ai-bubble {{background: {BUBBLE_AI}; color: {TEKS}; border-bottom-right-radius: 4px; border: 1px solid {BORDER};}}
-.ai-header {{display: flex; align-items: center; gap: 8px; margin-bottom: 6px;}}
-.ai-header img {{width: 24px; height: 24px;}}
-.dengerin-btn {{
-    background: {INPUT_BG}; border: 1px solid {BORDER}; border-radius: 16px;
-    padding: 6px 12px; font-size: 14px; margin-top: 8px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px; color: {TEKS};
+.user-bubble {{background: {BUBBLE_USER}; color: {TEKS}; border-bottom-left-radius: 6px;}}
+.ai-bubble {{background: {BUBBLE_AI}; color: {TEKS}; border-bottom-right-radius: 6px; border: 1px solid {BORDER};}}
+.ai-header {{display: flex; align-items: center; gap: 8px; margin-bottom: 8px;}}
+.ai-header img {{width: 28px; height: 28px; border-radius: 50%;}}
+.dengerin-btn button {{
+    background: {INPUT_BG}!important; border: 1px solid {BORDER}!important; border-radius: 16px!important;
+    padding: 6px 14px!important; font-size: 14px!important; margin-top: 10px!important; color: {TEKS}!important;
 }}
 
 /* ANIMASI 3 TITIK → SEGITIGA ORION */
 .orion-loading {{
     display: flex; justify-content: flex-end; align-items: center; 
-    height: 60px; width: 80px; margin: 10px 0;
+    height: 60px; width: 80px; margin: 10px 0; position: relative;
 }}
 .orion-dot {{
     position: absolute; width: 12px; height: 12px; background: {DOT}; border-radius: 50%;
@@ -96,8 +94,43 @@ CSS = f"""
     100% {{transform: translate(15px, -12px);}}
 }}
 
-/* INPUT BAR FIX */
+/* INPUT BAR FIX - TOMBOL + DAN 🎤 NYATU */
+[data-testid="stBottom"] {{background: {BG};}}
 .stChatInput {{display: none}}
+.input-container {{
+    position: fixed; bottom: 0; left: 0; right: 0; 
+    background: {BG}; padding: 16px 0; z-index: 999;
+}}
+.input-row {{
+    max-width: 720px; margin: 0 auto; background: {INPUT_BG}; 
+    border: 1px solid {BORDER}; border-radius: 28px; 
+    padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+}}
+.upload-btn {{
+    background: transparent!important; border: 1px solid {BORDER}!important; 
+    border-radius: 50%!important; width: 36px!important; height: 36px!important;
+    min-width: 36px!important; color: {TEKS}!important; font-size: 20px!important;
+}}
+.mic-btn {{
+    background: transparent!important; border: 1px solid {BORDER}!important; 
+    border-radius: 50%!important; width: 36px!important; height: 36px!important;
+    min-width: 36px!important; color: {TEKS}!important; font-size: 18px!important;
+}}
+.send-btn {{
+    background: {DOT}!important; border: none!important; border-radius: 50%!important; 
+    width: 36px!important; height: 36px!important; min-width: 36px!important; color: white!important;
+}}
+
+/* HIDE FILE UPLOADER LABEL */
+[data-testid="stFileUploader"] {{width: 36px!important;}}
+[data-testid="stFileUploader"] section {{padding: 0!important}}
+[data-testid="stFileUploader"] section > div {{display: none}}
+[data-testid="stFileUploader"] section button {{
+    background: transparent!important; border: 1px solid {BORDER}!important; 
+    border-radius: 50%!important; width: 36px!important; height: 36px!important;
+    min-width: 36px!important; color: {TEKS}!important;
+}}
+[data-testid="stFileUploader"] section button:before {{content: '+'; font-size: 22px;}}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -145,8 +178,7 @@ st.markdown('<p class="header-abu">product of F.N.L</p>', unsafe_allow_html=True
 
 # HOME SCREEN
 if not st.session_state.chat:
-    st.markdown(f"<h1 style='color:{TEKS}; font-size: 32px; font-weight: 600; margin-top: 10px;'>Ada yang bisa Orion bantu?</h1>", unsafe_allow_html=True)
-    st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{TEKS}; font-size: 32px; font-weight: 600; margin-top: 10px; margin-bottom: 30px;'>Ada yang bisa Orion bantu?</h1>", unsafe_allow_html=True)
     
     if st.button("🖼️ Buat gambar", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Buatin gambar kucing astronot"}); st.rerun()
@@ -155,7 +187,7 @@ if not st.session_state.chat:
     if st.button("🎓 Belajar dan berkembang", use_container_width=True): 
         st.session_state.chat.append({"role": "user", "content": "Ajari aku sesuatu yang baru"}); st.rerun()
 
-# TAMPILIN CHAT BUBBLE CUSTOM KIRI-KANAN
+# TAMPILIN CHAT - USER KIRI, ORION KANAN
 for i, msg in enumerate(st.session_state.chat):
     if msg["role"] == "user":
         if isinstance(msg["content"], str):
@@ -180,9 +212,11 @@ for i, msg in enumerate(st.session_state.chat):
         </div>
         ''', unsafe_allow_html=True)
         if isinstance(msg["content"], str):
-            if st.button("🔊 Dengerin", key=f"tts_{i}"):
-                audio = tts_teks(msg["content"])
-                if audio: st.audio(audio, format="audio/mp3")
+            col1, col2 = st.columns([5, 1])
+            with col2:
+                if st.button("🔊 Dengerin", key=f"tts_{i}", help="Dengerin jawaban"):
+                    audio = tts_teks(msg["content"])
+                    if audio: st.audio(audio, format="audio/mp3")
 
 # PROSES JAWABAN + LOADING
 if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
@@ -216,16 +250,21 @@ if st.session_state.chat and st.session_state.chat[-1]["role"] == "user":
     st.session_state.count += 1
     st.rerun()
 
-# INPUT BAR
-uploaded_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-mic_file = st.file_uploader("Mic", type=["wav", "mp3"], label_visibility="collapsed")
-
-if prompt := st.chat_input("Tanya Orion..."):
-    if st.session_state.count < MAX_CHAT:
-        st.session_state.chat.append({"role": "user", "content": prompt})
-        st.rerun()
-    else:
-        st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
+# INPUT BAR FIX - TOMBOL + DAN 🎤
+with st.container():
+    col1, col2, col3 = st.columns([1, 1, 10])
+    with col1:
+        uploaded_file = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="upload")
+    with col2:
+        mic_file = st.file_uploader("", type=["wav", "mp3"], label_visibility="collapsed", key="mic")
+        st.markdown('<button class="mic-btn">🎤</button>', unsafe_allow_html=True)
+    with col3:
+        if prompt := st.chat_input("Tanya Orion..."):
+            if st.session_state.count < MAX_CHAT:
+                st.session_state.chat.append({"role": "user", "content": prompt})
+                st.rerun()
+            else:
+                st.toast(f"Limit {MAX_CHAT} chat habis bro. Refresh ya")
 
 if uploaded_file:
     st.session_state.chat.append({"role": "user", "content": uploaded_file})
