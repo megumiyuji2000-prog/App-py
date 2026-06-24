@@ -20,23 +20,26 @@ if"messages"not in st.session_state:st.session_state.messages=[]
 if"chat_count"not in st.session_state:st.session_state.chat_count=0
 if"audio_processed_id"not in st.session_state:st.session_state.audio_processed_id=None
 if"selected_model"not in st.session_state:st.session_state.selected_model="gemini"
+if"last_model"not in st.session_state:st.session_state.last_model="gemini"
 GEMINI_LIMIT=35
 GROQ_LIMIT=35
 MAX_CHAT=GEMINI_LIMIT+GROQ_LIMIT
 jakarta_tz=pytz.timezone('Asia/Jakarta')
 IS_DARK=not(6<=datetime.now(jakarta_tz).hour<18)
-T={"bg":"#0A0A0B"if IS_DARK else"#FFFFFF","chat_bg":"#18181B"if IS_DARK else"#F4F4F5","user_bg":"#27272A"if IS_DARK else"#E4E4E7","text":"#E4E4E7"if IS_DARK else"#18181B","border":"#3F3F46"if IS_DARK else"#D4D4D8","badge_bg":"#18181B"if IS_DARK else"#F4F4F5","badge_text":"#A1A1AA"if IS_DARK else"#71717A","primary":"#A78BFA","user_bubble":"#3F3F46"if IS_DARK else"#E4E4E7","ai_bubble":"#18181B"if IS_DARK else"#FFFFFF","icon":"#FFFFFF"if IS_DARK else"#000000"}
+T={"bg":"#0A0A0B"if IS_DARK else"#FFFFFF","chat_bg":"#18181B"if IS_DARK else"#F4F5","user_bg":"#27272A"if IS_DARK else"#E4E7","text":"#E4E4E7"if IS_DARK else"#18181B","border":"#3F3F46"if IS_DARK else"#D4D4D8","badge_bg":"#18181B"if IS_DARK else"#F4F4F5","badge_text":"#A1A1AA"if IS_DARK else"#71717A","primary":"#A78BFA","user_bubble":"#3F3F46"if IS_DARK else"#E4E4E7","ai_bubble":"#18181B"if IS_DARK else"#FFFFFF","icon":"#FFFFFF"if IS_DARK else"#000000"}
 BLACKLIST=["bom","senjata","bunuh","bunuh diri","teroris","narkoba","bokep","hentai","porn","seks","sex","bugil","telanjang","memek","jembut","kontol","ngentot","coli","masturbasi","ganja","sabu","ekstasi","heroin","kokain"]
 def cek_sensitif(t):
  for k in BLACKLIST:
   if k in t.lower():return True,k
  return False,None
-st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}!important}}.block-container{{padding-top:80px!important;padding-bottom:160px!important;max-width:48rem!important}}.orion-header{{position:fixed!important;top:0!important;left:0!important;right:0!important;height:60px!important;background:{T['bg']}!important;border-bottom:3px solid {T['border']}!important;z-index:9998!important}}.orion-logo{{position:fixed!important;top:14px!important;right:16px!important;z-index:9999!important;width:32px!important;height:32px!important}}.orion-logo img{{border-radius:8px!important}}.chat-counter{{position:fixed!important;top:70px!important;right:16px!important;z-index:9999!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:20px!important;padding:6px 14px!important;font-size:0.8rem!important;color:{T['badge_text']}!important;font-weight:600!important}}.meta-opening{{margin-top:1rem!important;margin-bottom:2rem!important}}.meta-title{{font-size:2.5rem!important;font-weight:700!important;color:{T['text']}!important;margin-bottom:2.5rem!important;line-height:1.1!important;letter-spacing:-0.02em!important}}.meta-btn{{display:flex!important;width:100%!important;text-align:left!important;padding:18px 20px!important;margin-bottom:12px!important;background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:16px!important;color:{T['text']}!important;font-size:1rem!important;cursor:pointer!important;transition:all.2s!important;align-items:center!important}}.meta-btn:hover{{border-color:{T['primary']}!important;background-color:{T['user_bg']}!important}}.meta-btn-icon{{margin-right:14px!important;font-size:1.3rem!important}}.stChatMessage{{padding:0.5rem 0!important;gap:0.75rem!important}}[data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#F97316,#EF4444)!important;width:32px!important;height:32px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#3B82F6,#6366F1)!important}}[data-testid="stChatMessageContent"]{{background-color:{T['ai_bubble']}!important;border-radius:18px!important;padding:12px 16px!important;color:{T['text']}!important;border:1px solid {T['border']}!important;line-height:1.6!important;font-size:0.95rem!important;max-width:85%!important}}.stChatMessage[data-testid*="user"]{{flex-direction:row-reverse!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bubble']}!important;margin-left:0!important;margin-right:8px!important}}.stChatInput{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:transparent!important;z-index:10001!important}}.stChatInput>div{{background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:28px!important;padding:4px 8px 4px 80px!important;box-shadow:0 2px 8px rgba(0,0,0,.15)!important;position:relative!important}}.stChatInput input{{color:{T['text']}!important;background:transparent!important;border:none!important;padding-left:0!important}}.orion-badge{{display:inline-block!important;font-size:.7rem!important;padding:4px 10px!important;border-radius:12px!important;margin-bottom:10px!important;margin-right:6px!important;font-weight:600!important;background-color:{T['badge_bg']}!important;color:{T['badge_text']}!important;border:1px solid {T['border']}!important}}.model-badge{{background:#A78BFA!important;color:white!important}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:transparent!important;border:none!important;width:28px!important;height:28px!important;margin-top:8px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:1.1rem!important;color:{T['badge_text']}!important;opacity:0.7!important}}.tts-icon:hover{{opacity:1!important}}.footer-fnl{{position:fixed!important;bottom:8px!important;left:50%!important;transform:translateX(-50%)!important;font-size:0.7rem!important;color:{T['badge_text']}!important;z-index:10000!important;opacity:0.6!important}}[data-testid="stFileUploader"],[data-testid="stAudioInput"]{{display:none!important}}</style>""",unsafe_allow_html=True)
+st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');html,body,[class*="css"]{{font-family:'Inter',sans-serif}}#MainMenu,footer,header{{visibility:hidden}}.stApp,.main{{background-color:{T['bg']}!important}}.block-container{{padding-top:80px!important;padding-bottom:160px!important;max-width:48rem!important}}.orion-header{{position:fixed!important;top:0!important;left:0!important;right:0!important;height:60px!important;background:{T['bg']}!important;border-bottom:3px solid {T['border']}!important;z-index:9998!important}}.orion-logo{{position:fixed!important;top:14px!important;right:16px!important;z-index:9999!important;width:32px!important;height:32px!important}}.orion-logo img{{border-radius:8px!important}}.chat-counter{{position:fixed!important;top:70px!important;right:16px!important;z-index:9999!important;background:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:20px!important;padding:6px 14px!important;font-size:0.8rem!important;color:{T['badge_text']}!important;font-weight:600!important}}.meta-opening{{margin-top:1rem!important;margin-bottom:2rem!important}}.meta-title{{font-size:2.5rem!important;font-weight:700!important;color:{T['text']}!important;margin-bottom:2.5rem!important;line-height:1.1!important;letter-spacing:-0.02em!important}}.meta-btn{{display:flex!important;width:100%!important;text-align:left!important;padding:18px 20px!important;margin-bottom:12px!important;background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:16px!important;color:{T['text']}!important;font-size:1rem!important;cursor:pointer!important;transition:all.2s!important;align-items:center!important}}.meta-btn:hover{{border-color:{T['primary']}!important;background-color:{T['user_bg']}!important}}.meta-btn-icon{{margin-right:14px!important;font-size:1.3rem!important}}.stChatMessage{{padding:0.5rem 0!important;gap:0.75rem!important}}[data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#F97316,#EF4444)!important;width:32px!important;height:32px!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageAvatar"]{{background:linear-gradient(135deg,#3B82F6,#6366F1)!important}}[data-testid="stChatMessageContent"]{{background-color:{T['ai_bubble']}!important;border-radius:18px!important;padding:12px 16px!important;color:{T['text']}!important;border:1px solid {T['border']}!important;line-height:1.6!important;font-size:0.95rem!important;max-width:85%!important}}.stChatMessage[data-testid*="user"]{{flex-direction:row-reverse!important}}.stChatMessage[data-testid*="user"] [data-testid="stChatMessageContent"]{{background-color:{T['user_bubble']}!important;margin-left:0!important;margin-right:8px!important}}.stChatInput{{position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;width:100%!important;max-width:48rem!important;padding:0 1rem!important;background:transparent!important;z-index:10001!important}}.stChatInput>div{{background-color:{T['chat_bg']}!important;border:1px solid {T['border']}!important;border-radius:28px!important;padding:4px 8px 4px 90px!important;box-shadow:0 2px 8px rgba(0,0,0,.15)!important;position:relative!important}}.stChatInput input{{color:{T['text']}!important;background:transparent!important;border:none!important;padding-left:0!important}}.orion-badge{{display:inline-block!important;font-size:.7rem!important;padding:4px 10px!important;border-radius:12px!important;margin-bottom:10px!important;margin-right:6px!important;font-weight:600!important;background-color:{T['badge_bg']}!important;color:{T['badge_text']}!important;border:1px solid {T['border']}!important}}.model-badge{{background:#A78BFA!important;color:white!important}}[data-testid="stChatMessageContent"] h3{{font-size:1.05rem!important;font-weight:600!important;margin:16px 0 8px 0!important;color:{T['text']}!important}}[data-testid="stChatMessageContent"] ul{{margin:8px 0!important;padding-left:20px!important}}[data-testid="stChatMessageContent"] li{{margin-bottom:6px!important}}[data-testid="stChatMessageContent"] strong{{color:#A78BFA!important;font-weight:600!important}}[data-testid="stChatMessageContent"] a{{color:{T['primary']}!important;text-decoration:none!important;font-weight:500!important;border-bottom:1px solid {T['primary']}!important}}.tts-icon{{background:transparent!important;border:none!important;width:28px!important;height:28px!important;margin-top:8px!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:1.1rem!important;color:{T['badge_text']}!important;opacity:0.7!important}}.tts-icon:hover{{opacity:1!important}}.footer-fnl{{position:fixed!important;bottom:8px!important;left:50%!important;transform:translateX(-50%)!important;font-size:0.7rem!important;color:{T['badge_text']}!important;z-index:10000!important;opacity:0.6!important}}[data-testid="stFileUploader"],[data-testid="stAudioInput"]{{display:none!important}}</style>""",unsafe_allow_html=True)
 st.markdown('<div class="orion-header"></div>',unsafe_allow_html=True)
 try:
  with open("logo.png","rb")as f:data=base64.b64encode(f.read()).decode()
  st.markdown(f'<div class="orion-logo"><img src="data:image/png;base64,{data}"></div>',unsafe_allow_html=True)
 except:pass
+sisa=MAX_CHAT-st.session_state.chat_count
+if sisa<=3 and sisa>0:st.toast(f"waduh waktu ngobrol sisa {sisa} Kali lagi, nih siap-siap ya",icon="⚠️")
 st.markdown(f'<div class="chat-counter">{st.session_state.chat_count}/({MAX_CHAT})</div>',unsafe_allow_html=True)
 genai.configure(api_key=GEMINI_KEY)
 gemini_model=genai.GenerativeModel('gemini-2.5-flash')
@@ -80,18 +83,19 @@ def deteksi_tingkat(t):
  if any(k in t for k in["gambar","bikin","lukis","draw","buatin","generate"]):return"image"
  return"ngobrol"
 def generate_gambar(p):
- toast("Maaf jika hasilnya kurang memuaskan 🙏","🎨");st.session_state.last_generated_prompt=p
+ toast("maaf jika gambar kurang memuaskan🙏","🎨");st.session_state.last_generated_prompt=p
  url=f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
- try:r=requests.get(url,timeout=45);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Server penuh")
+ try:r=requests.get(url,timeout=60);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Server penuh")
  except:return None,"Error"
 def remix_gambar_hasil_generate(pr):
  if not st.session_state.last_generated_prompt:return None,"Buat gambar dulu baru bisa di-remix"
- toast("Maaf jika hasilnya kurang memuaskan 🙏","✨");fp=f"{st.session_state.last_generated_prompt}, {pr}";st.session_state.last_generated_prompt=fp
+ toast("maaf jika gambar kurang memuaskan🙏","✨");fp=f"{st.session_state.last_generated_prompt}, {pr}";st.session_state.last_generated_prompt=fp
  url=f"https://image.pollinations.ai/prompt/{urllib.parse.quote(fp[:200])}?width=1024&height=1024&nologo=true&seed={int(time.time())%10000}"
- try:r=requests.get(url,timeout=45);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Gagal remix")
+ try:r=requests.get(url,timeout=60);return(Image.open(io.BytesIO(r.content)).convert("RGB"),None)if r.status_code==200 else(None,"Gagal remix")
  except:return None,"Error remix"
 def image_to_bytes(img):buf=io.BytesIO();img.save(buf,format="PNG");return buf.getvalue()
 def kirim_ke_ai(prompt,image=None):
+ start_time=time.time()
  is_sensitif,kata=cek_sensitif(prompt)
  if is_sensitif:return[("text",f"Maaf, aku gak bisa bantu soal '{kata}' ya. Itu termasuk konten sensitif/berbahaya.\n\nKalau kamu lagi ada masalah, coba ngobrol sama orang dewasa yang kamu percaya. Aku bisa bantu topik lain yang positif kok!","ngobrol")]
  tingkat=deteksi_tingkat(prompt)
@@ -108,15 +112,16 @@ def kirim_ke_ai(prompt,image=None):
  models=[st.session_state.selected_model,"groq"if st.session_state.selected_model=="gemini"else"gemini"]
  for try_model in models:
   try:
+   if time.time()-start_time>55:toast("aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏","😅");return[("text","aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏","ngobrol")]
    if try_model=="gemini":
     toast("Pake Gemini...","✨")
     content=[full_p]
     if image:content.append(image)
-    res=gemini_model.generate_content(content,stream=True)
+    res=gemini_model.generate_content(content,stream=True,request_options={"timeout":55})
     full_text="".join([c.text for c in res if c.text])
    else:
     toast("Pake Groq...","⚡")
-    chat=groq_client.chat.completions.create(messages=[{"role":"user","content":full_p}],model="llama-3.3-70b-versatile",stream=True)
+    chat=groq_client.chat.completions.create(messages=[{"role":"user","content":full_p}],model="llama-3.3-70b-versatile",stream=True,timeout=55)
     full_text="".join([c.choices[0].delta.content for c in chat if c.choices[0].delta.content])
    if full_text:return[("text",full_text,tingkat,try_model)]
   except Exception as e:
@@ -124,17 +129,21 @@ def kirim_ke_ai(prompt,image=None):
    if"401"in err:toast("API Key salah/expired","❌")
    elif"429"in err:toast("Limit abis, coba model lain...","⚠️")
    elif"quota"in err.lower():toast("Quota abis","⚠️")
+   elif"timeout"in err.lower()or"time"in err.lower():toast("aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏","😅");return[("text","aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏","ngobrol")]
    if try_model==models[-1]:return[("text",f"Error: {err[:80]}. Cek API Key di Secrets.","ngobrol")]
- return[("text","Error gak dikenal bro.","ngobrol")]
+ return[("text","aduh seperti nya sistemnya lagi capek,coba lagi nanti,atau refresh halaman ya☺️🙏","ngobrol")]
 with st.sidebar:
  st.markdown("### ⚙️ Manage Orion")
  m=st.selectbox("Pilih Model AI",["Gemini 2.5 Flash","Llama 3.3 70B Groq"],index=0 if st.session_state.selected_model=="gemini"else 1)
- st.session_state.selected_model="gemini"if m=="Gemini 2.5 Flash"else"groq"
+ new_model="gemini"if m=="Gemini 2.5 Flash"else"groq"
+ if new_model!=st.session_state.last_model:
+  st.session_state.selected_model=new_model
+  st.session_state.last_model=new_model
+  toast(f"Pindah ke {m}","🔄")
  if st.button("🗑️ Hapus Semua Chat"):st.session_state.messages=[];st.session_state.chat_count=0;st.rerun()
  st.metric("Chat Tersisa",f"{MAX_CHAT-st.session_state.chat_count}/({MAX_CHAT})")
 if not st.session_state.messages:
  st.markdown('<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>',unsafe_allow_html=True)
-if MAX_CHAT-st.session_state.chat_count==3:st.toast("Sesi ngobrol hampir habis",icon="⚠️")
 for i,msg in enumerate(st.session_state.messages):
  with st.chat_message(msg["role"]):
   if msg["role"]=="assistant":
@@ -182,7 +191,7 @@ function injectButtons(){{
 }}
 const observer=new MutationObserver(injectButtons);
 observer.observe(document.body,{{childList:true,subtree:true}});
-setInterval(injectButtons,500);
+setInterval(injectButtons,300);
 </script>""",unsafe_allow_html=True)
 if audio_value:
  current_audio_id=id(audio_value)
@@ -205,18 +214,4 @@ if upload_file:
  st.session_state.messages.append({"role":"user","type":"image","content":user_img})
  hasil=kirim_ke_ai("",user_img)
  for tipe,konten,*rest in hasil:
-  tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
-  st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
- st.rerun()
-prompt=st.chat_input("Tanya Orion...")
-if prompt:
- if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏");st.stop()
- st.session_state.chat_count+=1
- user_text=prompt if isinstance(prompt,str)else""
- st.session_state.messages.append({"role":"user","type":"text","content":user_text})
- hasil=kirim_ke_ai(user_text,None)
- for tipe,konten,*rest in hasil:
-  tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
-  st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
- st.rerun()
-st.markdown('<div class="footer-fnl">product of F.N.L</div>',unsafe_allow_html=True
+  tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.ses
