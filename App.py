@@ -21,6 +21,7 @@ if"chat_count"not in st.session_state:st.session_state.chat_count=0
 if"last_generated_prompt"not in st.session_state:st.session_state.last_generated_prompt=None
 if"audio_processed_id"not in st.session_state:st.session_state.audio_processed_id=None
 if"selected_model"not in st.session_state:st.session_state.selected_model="gemini"
+if"show_home"not in st.session_state:st.session_state.show_home=True
 MAX_CHAT=70
 jakarta_tz=pytz.timezone('Asia/Jakarta')
 IS_DARK=not(6<=datetime.now(jakarta_tz).hour<18)
@@ -180,9 +181,9 @@ with st.sidebar:
  st.markdown("### ⚙️ Manage Orion")
  m=st.selectbox("Pilih Model AI",["Gemini 2.5 Flash","Llama 3.3 70B Groq"],index=0 if st.session_state.selected_model=="gemini"else 1)
  st.session_state.selected_model="gemini"if m=="Gemini 2.5 Flash"else"groq"
- if st.button("🗑️ Hapus Semua Chat"):st.session_state.messages=[];st.session_state.chat_count=0;st.rerun()
+ if st.button("🗑️ Hapus Semua Chat"):st.session_state.messages=[];st.session_state.chat_count=0;st.session_state.show_home=True;st.rerun()
  st.metric("Chat Tersisa",f"{MAX_CHAT-st.session_state.chat_count}/{MAX_CHAT}")
-if not st.session_state.messages:
+if st.session_state.show_home:
  st.markdown('<div class="meta-opening"><div class="meta-title">Ada yang bisa<br>Orion bantu?</div><button class="meta-btn"><span class="meta-btn-icon">🖼️</span> Buat gambar</button><button class="meta-btn"><span class="meta-btn-icon">💡</span> Bantu selesaikan masalah</button><button class="meta-btn"><span class="meta-btn-icon">🎓</span> Belajar dan berkembang</button></div>',unsafe_allow_html=True)
 if MAX_CHAT-st.session_state.chat_count==3:st.toast("Sesi ngobrol hampir habis",icon="⚠️")
 for i,msg in enumerate(st.session_state.messages):
@@ -204,6 +205,7 @@ for i,msg in enumerate(st.session_state.messages):
 
 # LOADING ANIMASI 3 TITIK → SEGITIGA
 if len(st.session_state.messages)>0 and st.session_state.messages[-1]["role"]=="user":
+    st.session_state.show_home=False
     with st.chat_message("assistant"):
         st.markdown('''
         <div class="orion-loading">
@@ -219,7 +221,7 @@ if len(st.session_state.messages)>0 and st.session_state.messages[-1]["role"]=="
             pesan = "Jelaskan isi foto ini"
         
         hasil=kirim_ke_ai(pesan,gambar)
-        time.sleep(2.6) # Tunggu animasi kelar
+        time.sleep(2.6)
         for tipe,konten,*rest in hasil:
          tingkat=rest[0]if rest else"ngobrol";model=rest[1]if len(rest)>1 else st.session_state.selected_model
          st.session_state.messages.append({"role":"assistant","type":tipe,"content":konten,"tingkat":tingkat,"model":model})
@@ -235,6 +237,7 @@ with col2:
     if prompt := st.chat_input("Tanya Orion..."):
         if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis. Silakan kembali besok 🙏");st.stop()
         st.session_state.chat_count+=1
+        st.session_state.show_home=False
         user_text=prompt.text if hasattr(prompt,'text')else(prompt.get("text","")if isinstance(prompt,dict)else prompt)
         user_file=prompt.files[0]if hasattr(prompt,'files')and prompt.files else(prompt.get("files",[None])[0]if isinstance(prompt,dict)and prompt.get("files")else None)
         user_img=None
@@ -245,6 +248,7 @@ with col2:
 if uploaded_file:
     if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
     st.session_state.chat_count+=1
+    st.session_state.show_home=False
     user_img=Image.open(uploaded_file).convert("RGB")
     st.session_state.messages.append({"role":"user","type":"image","content":user_img})
     st.rerun()
@@ -252,9 +256,5 @@ if uploaded_file:
 if mic_file:
     if st.session_state.chat_count>=MAX_CHAT:st.error("Sesi ngobrol hari ini sudah habis");st.stop()
     st.session_state.chat_count+=1
-    voice_text=transcribe_audio(mic_file.getvalue())
-    if voice_text: 
-        st.session_state.messages.append({"role":"user","type":"text","content":voice_text})
-        st.rerun()
-
-st.markdown('<div class="footer-fnl">product of F.N.L</div>',unsafe_allow
+    st.session_state.show_home=False
+    voice_text=transcribe_audio(
